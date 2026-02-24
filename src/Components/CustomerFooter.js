@@ -9,7 +9,6 @@ const CustomerFooter = () => {
         {/* Brand Column */}
         <div className="col-span-1 flex flex-col gap-4">
           <Link to="/" className="flex items-center gap-2 group">
-            {/* The little geometric logo */}
             <div className="grid grid-cols-2 gap-[2px] w-6 h-6 pt-1">
               <div className="bg-primary rounded-sm h-full w-full"></div>
               <div className="bg-transparent h-full w-full"></div>
@@ -18,8 +17,8 @@ const CustomerFooter = () => {
             </div>
             <h2 className="text-xl font-black leading-tight tracking-tight group-hover:text-primary transition-colors">Tea Soul</h2>
           </Link>
-          <p className="text-sm text-gray-500 mt-2">
-            Premium organic teas for the modern soul. Brew calm, sip joy.
+          <p className="text-sm text-gray-500 mt-2 pr-4">
+            Expert-verified premium teas from authentic artisan growers worldwide.
           </p>
           <div className="flex gap-4 mt-4">
             <span className="material-symbols-outlined text-gray-400 hover:text-primary transition-colors cursor-pointer">thumb_up</span>
@@ -28,15 +27,16 @@ const CustomerFooter = () => {
           </div>
         </div>
 
-        {/* Shop Column */}
+        {/* Shop & About Column */}
         <div className="col-span-1">
           <h3 className="font-bold mb-4 text-lg">Shop</h3>
           <ul className="flex flex-col gap-3 text-sm text-gray-500 font-medium">
             <li><Link to="/" className="hover:text-primary transition-colors">All Teas</Link></li>
-            <li><Link to="/" className="hover:text-primary transition-colors">Teaware</Link></li>
-            <li><Link to="/" className="hover:text-primary transition-colors">Gifts & Bundles</Link></li>
-            <li><Link to="/" className="hover:text-primary transition-colors">Subscriptions</Link></li>
-            <li><Link to="/" className="hover:text-primary transition-colors">Sale</Link></li>
+            <li><Link to="/" className="hover:text-primary transition-colors">Our Story</Link></li>
+            <li><Link to="/" className="hover:text-primary transition-colors">Tea Verification</Link></li>
+            <li><Link to="/" className="hover:text-primary transition-colors">Sustainability</Link></li>
+            <li><Link to="/" className="hover:text-primary transition-colors">The Vault Journal</Link></li>
+            <li><Link to="/" className="hover:text-primary transition-colors">Tea Experts</Link></li>
           </ul>
         </div>
 
@@ -45,9 +45,9 @@ const CustomerFooter = () => {
           <h3 className="font-bold mb-4 text-lg">Support</h3>
           <ul className="flex flex-col gap-3 text-sm text-gray-500 font-medium">
             <li><Link to="/" className="hover:text-primary transition-colors">Contact Us</Link></li>
+            <li><Link to="/" className="hover:text-primary transition-colors">FAQs</Link></li>
             <li><Link to="/" className="hover:text-primary transition-colors">Shipping Policy</Link></li>
-            <li><Link to="/" className="hover:text-primary transition-colors">Returns & Refunds</Link></li>
-            <li><Link to="/" className="hover:text-primary transition-colors">FAQ</Link></li>
+            <li><Link to="/" className="hover:text-primary transition-colors">Returns & Refund</Link></li>
           </ul>
         </div>
 

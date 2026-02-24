@@ -4,6 +4,7 @@ import Layout from "./Layout";
 import CustomerLayout from "./CustomerLayout"; 
 import Login from "./Login/Login.js";
 import Home from "./Pages/Home.js";
+import Register from "./Login/Register.js";
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
         </Route>
 
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
       </Routes>
     </Router>
   );
