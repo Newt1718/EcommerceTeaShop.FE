@@ -1,7 +1,7 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 
-function Sidebar({ isOpen, setIsOpen }) {
+function Sidebar() {
   const location = useLocation();
   const menuItems = [
     { path: "/", label: "Dashboard", icon: "📊" },
@@ -14,11 +14,7 @@ function Sidebar({ isOpen, setIsOpen }) {
 
   return (
     <div>
-      <aside
-        className={`w-64 bg-white border-r border-gray-200 min-h-[calc(100vh-73px)] sticky top-73px overflow-auto ${
-          isOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
+      <aside className="w-64 bg-white border-r border-gray-200 min-h-[calc(100vh-73px)] sticky top-73px overflow-auto translate-x-full">
         <nav className="p-4">
           {menuItems.map((item) => {
             const isActive = location.pathname === item.path;

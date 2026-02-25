@@ -1,5 +1,5 @@
 import { useSelector } from "react-redux";
-import { Navigate, useRoutes } from "react-router-dom";
+import { useRoutes, Navigate } from "react-router-dom";
 import CustomerLayout from "../Common/Layout/CustomerLayout/CustomerLayout";
 import Home from "../Pages/Home/Home";
 import ProfileOverview from "../Pages/ProfileOverview/ProfileOverview";
@@ -10,6 +10,7 @@ import ForgotPassword from "../Common/Account/ForgotPassword/ForgotPassword";
 import Cart from "../Pages/Cart/Cart";
 import About from "../Pages/About/About";
 import Checkout from "../Pages/Checkout/Checkout";
+import NotFoundPage from "../Pages/NotFound/NotFoundPage";
 
 const Routers = () => {
   const { isAuthenticated, user } = useSelector(
@@ -38,7 +39,7 @@ const Routers = () => {
     { path: "/register", element: <Register /> },
     { path: "/forgot-password", element: <ForgotPassword /> },
 
-    { path: "*", element: <Navigate house to="/" /> },
+    { path: "*", element: <NotFoundPage /> },
   ]);
 
   return routing;
