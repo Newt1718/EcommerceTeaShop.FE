@@ -11,11 +11,9 @@ const Login = () => {
 
   return (
     <div className="flex min-h-screen w-full font-display">
-      
-      {/* Left Side: Login Form */}
+
       <div className="flex w-full flex-col justify-center px-4 py-12 sm:px-6 lg:flex-none lg:px-20 xl:px-24 bg-background-light lg:w-1/2 relative">
         
-        {/* Back to Home Button */}
         <Link to="/" className="absolute top-8 left-8 flex items-center gap-2 text-gray-500 hover:text-primary transition-colors font-bold text-sm">
           <span className="material-symbols-outlined text-lg">arrow_back</span>
           Back to Shop
@@ -101,7 +99,6 @@ const Login = () => {
         </div>
       </div>
 
-      {/* Right Side: Image */}
       <div className="relative hidden w-0 flex-1 lg:block bg-[#ecf6ee]">
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent z-10"></div>
         <div className="absolute bottom-0 left-0 right-0 z-20 p-12 text-white">

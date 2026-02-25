@@ -12,10 +12,8 @@ const Register = () => {
   return (
     <div className="flex min-h-screen w-full font-display">
       
-      {/* Left Side: Form */}
       <div className="flex w-full flex-col justify-center px-4 py-12 sm:px-6 lg:flex-none lg:px-20 xl:px-24 bg-background-light lg:w-1/2 relative">
         
-        {/* Back to Home Button */}
         <Link to="/" className="absolute top-8 left-8 flex items-center gap-2 text-gray-500 hover:text-primary transition-colors font-bold text-sm">
           <span className="material-symbols-outlined text-lg">arrow_back</span>
           Back to Shop
@@ -87,7 +85,6 @@ const Register = () => {
         </div>
       </div>
 
-      {/* Right Side: Visual */}
       <div className="relative hidden w-0 flex-1 lg:block bg-[#ecf6ee]">
         <div className="absolute inset-0 bg-gradient-to-t from-background-light/40 to-transparent z-10"></div>
         <img src="https://images.unsplash.com/photo-1589144883460-619f70d1d643?q=80&w=1000" alt="Serene matcha tea setup" className="absolute inset-0 h-full w-full object-cover opacity-90" />

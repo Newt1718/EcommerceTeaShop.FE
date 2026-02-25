@@ -36,7 +36,6 @@ const CustomerNavbar = () => {
                 <span className="material-symbols-outlined">shopping_cart</span>
               </button>
               
-              {/* The new dedicated routing button! */}
               <Link to="/login" className="flex items-center justify-center rounded-lg px-4 h-10 bg-surface-light hover:bg-primary/20 hover:text-primary transition-all text-[#0d1b10] text-sm font-bold">
                 Sign In | Log In
               </Link>

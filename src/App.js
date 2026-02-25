@@ -5,23 +5,25 @@ import CustomerLayout from "./CustomerLayout";
 import Login from "./Login/Login.js";
 import Home from "./Pages/Home.js";
 import Register from "./Login/Register.js";
+import ProfileOverview from "./Pages/ProfileOverview.js";
+import EditProfile from "./Pages/EditProfile.js";
 
 function App() {
   return (
     <Router>
       <Routes>
-        {/* PUBLIC SHOP ROUTES */}
         <Route path="/" element={<CustomerLayout />}>
           <Route index element={<Home />} />
+          <Route path="/profile" element={<ProfileOverview />} />
+          <Route path="profile/edit" element={<EditProfile />} />
         </Route>
 
-        {/* ADMIN BACKEND ROUTES */}
         <Route path="/admin" element={<Layout />}>
-          {/* We will add the dashboard pages back in here later! */}
         </Route>
 
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+
       </Routes>
     </Router>
   );

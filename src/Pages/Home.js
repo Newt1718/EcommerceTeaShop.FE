@@ -18,7 +18,6 @@ const Home = () => {
   return (
     <div className="bg-background-light text-[#0d1b10] font-display">
       
-      {/* 1. Hero Section */}
       <section 
         className="relative min-h-[500px] md:min-h-[600px] flex items-center justify-center bg-cover bg-center"
         style={{ 
@@ -43,7 +42,6 @@ const Home = () => {
         </div>
       </section>
 
-      {/* 2. Categories Section */}
       <section className="max-w-[1440px] mx-auto px-4 md:px-10 pt-16 pb-8">
         <div className="flex flex-col items-center mb-10">
           <span className="text-primary font-bold tracking-widest uppercase text-sm">Discover</span>
@@ -66,7 +64,6 @@ const Home = () => {
         </div>
       </section>
 
-      {/* 3. This Week's Favorites */}
       <section className="max-w-[1440px] mx-auto px-4 md:px-10 pb-20">
         <div className="flex justify-between items-end mb-8">
           <div>
@@ -101,7 +98,6 @@ const Home = () => {
         </div>
       </section>
 
-      {/* 4. Promo Section */}
       <section className="w-full bg-surface-light py-16 md:py-24">
         <div className="px-4 md:px-10 max-w-[1440px] mx-auto">
           <div className="flex flex-col md:flex-row items-center gap-10 md:gap-20">
@@ -130,7 +126,6 @@ const Home = () => {
         </div>
       </section>
 
-      {/* 5. Newsletter Section */}
       <section className="w-full py-20 px-4 md:px-10 bg-background-light">
         <div className="max-w-[960px] mx-auto bg-gradient-to-br from-surface-light to-transparent rounded-3xl p-8 md:p-16 text-center border border-primary/20">
           <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm text-primary">
