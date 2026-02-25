@@ -7,6 +7,9 @@ import EditProfile from "../Pages/EditProfile/EditProfile";
 import Login from "../Common/Account/Login/Login";
 import Register from "../Common/Account/Register/Register";
 import ForgotPassword from "../Common/Account/ForgotPassword/ForgotPassword";
+import Cart from "../Pages/Cart/Cart";
+import About from "../Pages/About/About";
+import Checkout from "../Pages/Checkout/Checkout";
 
 const Routers = () => {
   const { isAuthenticated, user } = useSelector(
@@ -16,12 +19,15 @@ const Routers = () => {
 
   const routing = useRoutes([
     {
-      path: "/customer",
+      path: "/",
       element: <CustomerLayout />,
       children: [
         { index: true, element: <Home /> },
         { path: "profile", element: <ProfileOverview /> },
         { path: "profile/edit", element: <EditProfile /> },
+        { path: "cart", element: <Cart /> },
+        { path: "about", element: <About /> },
+        { path: "checkout", element: <Checkout /> },
       ],
     },
 
