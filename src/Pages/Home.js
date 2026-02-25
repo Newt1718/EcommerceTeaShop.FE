@@ -1,18 +1,19 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 const Home = () => {
   const categories = [
-    { name: 'Green Tea', img: 'https://images.unsplash.com/photo-1627435601361-ec25f5b1d0e5?q=80&w=800' },
-    { name: 'Black Tea', img: 'https://images.unsplash.com/photo-1576092762791-dd9e2220afa1?q=80&w=800' },
-    { name: 'Herbal & Floral', img: 'https://images.unsplash.com/photo-1600615853610-18e4ff68f870?q=80&w=800' },
-    { name: 'Oolong', img: 'https://images.unsplash.com/photo-1582793988951-9aed550cbe14?q=80&w=800' }
+    { name: 'Green Tea', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDNRoGoGQkdo5QM9Vve4ZOB1feIFhttSdYnDBa9PuEYtJOjiasM4eTnJYWaEb5RLoTpivN0JuFDNFb_N2rEzw-5Fu14CeggbygWEfzvK1nP1XpXexZiBpxPaU2J83GPuONIwUIDQ_rBvPw-QAqWmfd4-4I4tdqhOc1d0gfW6JlawhN9PAZECARqQ9wmwYDoY419n8ZHl0HaWNGlYu4saIZEy9RPltdbopNxyBaQdj9nW-YZ8voUXpr0O8Gb2usCmX8F_9Er3zNpL-1O' },
+    { name: 'Black Tea', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAkf-g9s9uMf9fvsyf8HLC1FW5vk1LfrynxGZYHFHGQeFRfrxCfOO92uJZloNcIwZlmUJ7OXJcaM-IP5mjnn55YKJP_sQae2GuG0rmVWpcF9vkvUweqHrJZBMYs8P0ToVRdA8luRfeFurQXm2Cl96nj_ugGkyPP-9lqZNf9qafDdAzmnbjZiDbR3Xc3dDQ6x3nNtP_mIdngqgEsUZ7mw2MnMGaYgde2tgOJNX78Gvj67RpBOOE-dZWFxx4g79sz8fDpftsI9_b-q89V' },
+    { name: 'Herbal & Floral', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCEGJSAQyNEBumm6px14DPffIVc_3Kfq_fPaSwwRMmHgslFXO6o1i-zlXYk8VkZLOVGBH0pNSskkK2yba2W97zxoOSl_pWGpcf8WHhhAbHjVekwBTUl-Ew0ikknPDmcS7K2BCqPXswPYcKNM3ZLSmutxPEzukUuSUERP7i73W5JXkCn8d-HkLE8T-UUWvaJTQobyYhB6kTi2UTqzkDh3VLsAUPuKB5t8lU--loCpz_wBqP92pxqmKFDhR2LABaZVMSNRsRb5r3hBcnl' },
+    { name: 'Oolong', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCGmX8G7ewmtAniJ0-9cI-yiKpCpOEhJJWBluWUzMo6K0YsSUlr0z5xB5gUIPwdvSoVZQhez9LAvbJGJM7zb7M-c1U8XLsE-P_7taBayqRFrsBL-FVytZ00Jz0_5UVMbWsMJIBFMXQWnRz41QJ7-O4sblWchYdVGomgx5oknDC1dnE79fNu3HB3ODDuVWgzsDn3-7KbiaZGN1zj-DpIbmDTKJljomALGrKPHuf_R9pyhGg1WecTsElO5XVSoss6V6VcHjzZ1Npa9L-1' }
   ];
 
   const favorites = [
-    { name: 'Imperial Matcha', price: '$24.00', desc: 'Ceremonial Grade, Japan', tag: 'BEST SELLER', img: 'https://images.unsplash.com/photo-1589144883460-619f70d1d643?q=80&w=800' },
-    { name: 'Earl Grey Supreme', price: '$16.50', desc: 'Black Tea with Bergamot', img: 'https://images.unsplash.com/photo-1563822249548-9a72b6353cad?q=80&w=800' },
-    { name: 'Jasmine Pearls', price: '$22.00', desc: 'Hand-rolled Green Tea', img: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?q=80&w=800' },
-    { name: 'Aged Pu-erh', price: '$35.00', desc: 'Fermented, 2018 Vintage', tag: 'NEW', img: 'https://images.unsplash.com/photo-1627435601361-ec25f5b1d0e5?q=80&w=800' }
+    { name: 'Imperial Matcha', price: '$24.00', desc: 'Ceremonial Grade, Japan', tag: 'BEST SELLER', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBpbD9wGvMcg8GLVEn_SGumiks7WdyN7x6V1pcQLB0jIoZYHTTPC0tUQjihU9ZMA8tfswjnbZ0fgrGXacs7tzEXpl4rln6hXUSyRmm_oKAxcJmBjYpHHpfJkRgkQbk0UJiEb4qm4enu2OSsuytmcilwX8UdwOGrvpW2J-0NVQWkZElJcvxzbceyOrHWeNYE3RA3JOEpDfl3kLma4IWTEs9yhWIuVi1mftFaRthUurRlMHlPCHHSNyrUx177SfX-J_nJkiBQwww_nIdf' },
+    { name: 'Earl Grey Supreme', price: '$16.50', desc: 'Black Tea with Bergamot', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAZBLHGSEEmSnk0iYNldBAfSDUfolpZ47Mqqj0pxPZ3lPCzXkcHTZO9iEvqyQ_3NzP_hyr9VCzvXeAzPVzXSIULvKG2x8PqmZM2m9Am_GgimYvyu4lQEyjse5S8qxPpZEKXwXa-kYaWkIBttkUpXnWViYaJToPbB5EkU_ECzf8d39JmqBkvPwk8th9amNRCo5Fqd7b59a-9XvhHF2QcGEwpYgJGWrtJbmgMUjR15wOblXSwAPfpHRF2um0TjvqgD0YOztyyl17Qjz30' },
+    { name: 'Jasmine Pearls', price: '$22.00', desc: 'Hand-rolled Green Tea', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCGRiK3XSIGRHorzk6WWg_gNXQCYfizZCV1UYhOrBxi3X50YKI69KQ_pItdDsslTOYmMYEHvt3nzN6TFx3g20N7hlpMbLyAm-4BcHz2c1WFIrukUZnDBpYelR09-_FEjUn7wru4JF3Ot8T820Nr2m_bzPmCqjj3i1Tv00ectZMMMtOXK0kUOBWOEjUgIMzvyX3TGQWkpOQse_3xhBDGKz16ak8qCcNDvPET8xBnuBikvakH4lcq8MPeNilOnpVPxPqkHeM0vPu6C4Pa' },
+    { name: 'Aged Pu-erh', price: '$35.00', desc: 'Fermented, 2018 Vintage', tag: 'NEW', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCGJxOODM_82_HKHum5B4_AEkuPro07maHXKTdOy8eI8FAFT_HDBKqURKZacXn3GItP2XvGQrLX-GDHtfHZeoELQ89s7nqPh_a5IaBMEy0QUQ6f2VBwjkYf_PzErc12fYok_8P0Gv0r2boe4mFYCgfCasE-1yqvUzAy0hQiQCKxmS7xxjHlpoo-m1_vOP-B--TTkI05JcyNeyape3sss8jbucTrPxMkYc9RuYyCXQIfnDgOwrZFRI5X-OVrTESe-A5T_Kszax1TKXT4' }
   ];
 
   return (
@@ -21,7 +22,7 @@ const Home = () => {
       <section 
         className="relative min-h-[500px] md:min-h-[600px] flex items-center justify-center bg-cover bg-center"
         style={{ 
-          backgroundImage: `linear-gradient(rgba(16, 34, 19, 0.4), rgba(16, 34, 19, 0.7)), url("https://images.unsplash.com/photo-1596328546171-77e37b5fefef?q=80&w=2000")` 
+          backgroundImage: `linear-gradient(rgba(16, 34, 19, 0.4), rgba(16, 34, 19, 0.7)), url("https://lh3.googleusercontent.com/aida-public/AB6AXuBQ-QEld4X1S--97xb7ejRo6k_02uYaxCC0rOOg4Mjin2J2IgK2uXKllg86nAnAzmMSCtJaqz2RRdeFMI7OvThqK1U0jw2QjrMYbI0DClDdptWqHUY3QkZoNzwtnuh0vqdM-qwM4wNBSc-4_HXGPjw5gxxhoasQamB9fnAiD9KTynNNE32ch7mU3wmTv7ctr773EJnpRi_qfNEepRt4Vko4SzNq4MwV3JXEZpjnWIcZw3kj1aYfRWKZnLuuFIrFAx2fwonTsnrikICw")` 
         }}
       >
         <div className="text-center px-4 max-w-3xl z-10">
@@ -32,9 +33,11 @@ const Home = () => {
             Hand-picked organic teas sourced from the finest gardens, delivered fresh to your door.
           </p>
           <div className="flex gap-4 justify-center">
-            <button className="bg-primary hover:bg-primary/90 text-[#0d1b10] px-8 py-3 rounded-lg font-bold transition-transform hover:scale-105 shadow-lg shadow-primary/25">
-              Shop Collection
-            </button>
+            <Link to="/shop">
+              <button className="bg-primary hover:bg-primary/90 text-[#0d1b10] px-8 py-3 rounded-lg font-bold transition-transform hover:scale-105 shadow-lg shadow-primary/25">
+                Shop Collection
+              </button>
+            </Link >
             <button className="bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white border border-white/30 px-8 py-3 rounded-lg font-bold transition-all">
               Our Story
             </button>
@@ -102,7 +105,7 @@ const Home = () => {
         <div className="px-4 md:px-10 max-w-[1440px] mx-auto">
           <div className="flex flex-col md:flex-row items-center gap-10 md:gap-20">
             <div className="w-full md:w-1/2 relative rounded-2xl overflow-hidden shadow-2xl">
-              <img src="https://images.unsplash.com/photo-1577968897966-3d4325b36b61?q=80&w=1000" alt="Tea Setup" className="w-full h-full object-cover aspect-[4/3]" />
+              <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDeHbsJYGeTazYnwl-9JLA4yHKMpi11TvuMEWwpMuhnvevsR4Zw68n46KfsTp_3Q-3K_r3_XCQ3wdUmVialHw94vZfO_ACknPdfsavNcrDM2eap4tVA8K6desQj_BNYdCjFKwLBgvd77Prt7zsD1t7DMePlmPpODWJWAytD3i-wq7nmJi1lKpX3fhjsQQcWosks-q6lCAKgrc_RfQQWqTcEKchC6VGj9QyNSZwK6oo2URDkoSYV0QpM9oBGzyxHjo7i7703AL6u13n2" alt="Tea Setup" className="w-full h-full object-cover aspect-[4/3]" />
               <div className="absolute inset-0 bg-primary/10 mix-blend-multiply"></div>
             </div>
             <div className="w-full md:w-1/2 flex flex-col gap-6 items-start">

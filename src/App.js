@@ -7,6 +7,8 @@ import Home from "./Pages/Home.js";
 import Register from "./Login/Register.js";
 import ProfileOverview from "./Pages/ProfileOverview.js";
 import EditProfile from "./Pages/EditProfile.js";
+import Shop from "./Pages/Shop.js";
+import ProductDetail from "./Pages/ProductDetail.js";
 
 function App() {
   return (
@@ -16,6 +18,8 @@ function App() {
           <Route index element={<Home />} />
           <Route path="/profile" element={<ProfileOverview />} />
           <Route path="profile/edit" element={<EditProfile />} />
+          <Route path="shop" element={<Shop />} />
+          <Route path="product/:id" element={<ProductDetail />} />
         </Route>
 
         <Route path="/admin" element={<Layout />}>
