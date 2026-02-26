@@ -4,19 +4,20 @@ import Description from "./Description";
 import Origin from "./Origin";
 import Reviews from "./Reviews";
 
+const thumbnails = [
+  "https://lh3.googleusercontent.com/aida-public/AB6AXuDEy5SGb1GoJxVolf_VV1JBcRC0xUgcv-Rnd59svi8y8pYh9wb7wTv69LD6QpDZy4kVYcCYXr03WGkHpXAMydPgfkmCcD77WCWLeM4jGdZP-UDSOw7FcajWa6AVChxPXrMjAWFq6H7jzB5n2VjhgvPAwhiOaJpFz6xVAqU8SF37LYFXjrcu568cXvfRtJ5ySNOE_4ytShAlBpuPvCFgjZQOPj-pP8njxZEAHSFhLync2cSXHXjp0jARPdjvpQreZr-5anGUr96tDCsx",
+  "https://lh3.googleusercontent.com/aida-public/AB6AXuBhr9MKfge7rKsRy4-67IG7PaCQ-xIiFA-n-ifJ6E7mmWmx0wHP3oRvAP1l0uFhEPrVJ2xYo1yUoDnS3uBht9GKgEZctDi8ksSmKDXvdMNwR2zPR-PXAXZQHXvIrUDuM8fIkmMVeize2e59g76QbrmLJWTAn4Gc9GFxjssyIsDRZPpMG34V7w3WI5TpyL1KvkiSN_z1wIYw60mpRvxSLvXfq0DlcKKCBtBrlm9pR18tg2uKtbnA-rq-wKZzEqyvEnksc08LBeZ1ZPnM",
+  "https://lh3.googleusercontent.com/aida-public/AB6AXuAK5udmXVqauR08mI9cHzl_cU6jmrHxHtpfSNyJm-yJvGFBPjchE9FHHA3l4MnyzbuKM53m3Vy6_LqnlNKwWBxjiMxr__xJYlJEe4MBSlqFvtgQ0qRrKzL6pvFtdiow5Kf1Y3cFc6529G3DVKq-dpBaQeLj3sSCi9TnNfFJ1OBUJhTNmGcpoDWY2vKGjeyoNHJUAk-LiMdiXUOA-XMWI6DeZk4uxNP0EXy22YXTgKMOY5oRxoagOdo9zLI6KRhrFKSo15IwLItKH9U_",
+  "https://lh3.googleusercontent.com/aida-public/AB6AXuDatd4azIC27G0oJosUCsoYIyVz2sqfUQcai9atn14GfRqE2UQ_9JseL_fZ3ia3Hi_9iVCEtrq7lw3szV1AJNYr9l2pVO8O79wDRJkFf2oc93eIXd43JdNbIUJ0dLXf1jpQlEfIjPEo3nNcxcBa2D5G_24fxZERsx9IKlFvleI-8DM7beUAp0KV5ik3NFaZ_vjYUox0uekF022l_rFneEB7Etq9APZ0Eev1n-swYKI2T7HFyt05l-sB0fOBdgT5KDXcK6ajGp0obULq",
+];
+
 const ProductDetail = () => {
   const [selectedSize, setSelectedSize] = useState("30g");
   const [quantity, setQuantity] = useState(1);
   const [carouselStart, setCarouselStart] = useState(0);
   const pageSize = 4;
   const [activeTab, setActiveTab] = useState("Description");
-
-  const thumbnails = [
-    "https://lh3.googleusercontent.com/aida-public/AB6AXuDEy5SGb1GoJxVolf_VV1JBcRC0xUgcv-Rnd59svi8y8pYh9wb7wTv69LD6QpDZy4kVYcCYXr03WGkHpXAMydPgfkmCcD77WCWLeM4jGdZP-UDSOw7FcajWa6AVChxPXrMjAWFq6H7jzB5n2VjhgvPAwhiOaJpFz6xVAqU8SF37LYFXjrcu568cXvfRtJ5ySNOE_4ytShAlBpuPvCFgjZQOPj-pP8njxZEAHSFhLync2cSXHXjp0jARPdjvpQreZr-5anGUr96tDCsx",
-    "https://lh3.googleusercontent.com/aida-public/AB6AXuBhr9MKfge7rKsRy4-67IG7PaCQ-xIiFA-n-ifJ6E7mmWmx0wHP3oRvAP1l0uFhEPrVJ2xYo1yUoDnS3uBht9GKgEZctDi8ksSmKDXvdMNwR2zPR-PXAXZQHXvIrUDuM8fIkmMVeize2e59g76QbrmLJWTAn4Gc9GFxjssyIsDRZPpMG34V7w3WI5TpyL1KvkiSN_z1wIYw60mpRvxSLvXfq0DlcKKCBtBrlm9pR18tg2uKtbnA-rq-wKZzEqyvEnksc08LBeZ1ZPnM",
-    "https://lh3.googleusercontent.com/aida-public/AB6AXuAK5udmXVqauR08mI9cHzl_cU6jmrHxHtpfSNyJm-yJvGFBPjchE9FHHA3l4MnyzbuKM53m3Vy6_LqnlNKwWBxjiMxr__xJYlJEe4MBSlqFvtgQ0qRrKzL6pvFtdiow5Kf1Y3cFc6529G3DVKq-dpBaQeLj3sSCi9TnNfFJ1OBUJhTNmGcpoDWY2vKGjeyoNHJUAk-LiMdiXUOA-XMWI6DeZk4uxNP0EXy22YXTgKMOY5oRxoagOdo9zLI6KRhrFKSo15IwLItKH9U_",
-    "https://lh3.googleusercontent.com/aida-public/AB6AXuDatd4azIC27G0oJosUCsoYIyVz2sqfUQcai9atn14GfRqE2UQ_9JseL_fZ3ia3Hi_9iVCEtrq7lw3szV1AJNYr9l2pVO8O79wDRJkFf2oc93eIXd43JdNbIUJ0dLXf1jpQlEfIjPEo3nNcxcBa2D5G_24fxZERsx9IKlFvleI-8DM7beUAp0KV5ik3NFaZ_vjYUox0uekF022l_rFneEB7Etq9APZ0Eev1n-swYKI2T7HFyt05l-sB0fOBdgT5KDXcK6ajGp0obULq",
-  ];
+  const [selectedImage, setSelectedImage] = useState(thumbnails[0]);
 
   const relatedProducts = [
     {
@@ -94,7 +95,12 @@ const ProductDetail = () => {
             {thumbnails.map((src, idx) => (
               <div
                 key={idx}
-                className={`shrink-0 cursor-pointer border-2 rounded-xl overflow-hidden size-20 md:size-24 transition-all ${idx === 0 ? "border-primary opacity-100" : "border-transparent hover:border-primary/50 opacity-70 hover:opacity-100"}`}
+                onClick={() => setSelectedImage(src)}
+                className={`shrink-0 cursor-pointer border-2 rounded-xl overflow-hidden size-20 md:size-24 transition-all ${
+                  selectedImage === src
+                    ? "border-primary opacity-100 scale-95"
+                    : "border-transparent hover:border-primary/50 opacity-70 hover:opacity-100"
+                }`}
               >
                 <img
                   src={src}
@@ -107,7 +113,7 @@ const ProductDetail = () => {
 
           <div className="flex-1 h-[400px] md:h-[600px] rounded-3xl overflow-hidden bg-surface-light relative shadow-sm group">
             <img
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuBrewoKaXLMrEZ4IUJ4r36tnvbx6wRvho0FgyZRhyg4g1tWMgCC9JNvpaUPGXnWf43zywul4fHM7RSUSk90gP2-8xBcKGJghSJv2au41hKft1z41O1eR1xUn8T-ybVPM8trlhaTqqQSmddsaYPr5L78486YKCH4kMP0IBU63veOWEn94PaCuw-UCECgI6S-TrCX9QjLK08s4pZlO-v5HP19vDvnAB2oioVd4f12-c0OBUAxZY39hhQkzhzvN8uuPJK5NPYcXMkValXL"
+              src={selectedImage}
               alt="High quality ceremonial matcha"
               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
             />
