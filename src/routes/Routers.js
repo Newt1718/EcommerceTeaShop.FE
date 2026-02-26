@@ -10,6 +10,11 @@ import ForgotPassword from "../Common/Account/ForgotPassword/ForgotPassword";
 import Cart from "../Pages/Cart/Cart";
 import About from "../Pages/About/About";
 import Checkout from "../Pages/Checkout/Checkout";
+import Journal from "../Pages/Journal/Journal";
+import Contact from "../Pages/Contact/Contact";
+import FAQ from "../Pages/FAQ/FAQ";
+import ProductDetail from "../Pages/Product/ProductDetail";
+import Shop from "../Pages/Shop/Shop";
 
 const Routers = () => {
   const { isAuthenticated, user } = useSelector(
@@ -28,6 +33,11 @@ const Routers = () => {
         { path: "cart", element: <Cart /> },
         { path: "about", element: <About /> },
         { path: "checkout", element: <Checkout /> },
+        { path: "journal", element: <Journal /> },
+        { path: "contact", element: <Contact /> },
+        { path: "faq", element: <FAQ /> },
+        { path: "product/:id", element: <ProductDetail /> },
+        { path: "shop", element: <Shop /> },
       ],
     },
 

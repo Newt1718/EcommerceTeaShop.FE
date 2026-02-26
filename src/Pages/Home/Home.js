@@ -37,10 +37,12 @@ const Home = () => {
               <button className="bg-primary hover:bg-primary/90 text-[#0d1b10] px-8 py-3 rounded-lg font-bold transition-transform hover:scale-105 shadow-lg shadow-primary/25">
                 Shop Collection
               </button>
-            </Link >
-            <button className="bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white border border-white/30 px-8 py-3 rounded-lg font-bold transition-all">
-              Our Story
-            </button>
+            </Link>
+            <Link to="/about">
+              <button className="bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white border border-white/30 px-8 py-3 rounded-lg font-bold transition-all">
+                Our Story
+              </button>
+            </Link>
           </div>
         </div>
       </section>
@@ -53,7 +55,7 @@ const Home = () => {
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
           {categories.map((cat, i) => (
-            <div key={i} className="group relative overflow-hidden rounded-xl aspect-[4/5] md:aspect-square shadow-md cursor-pointer hover:shadow-xl transition-all duration-300">
+            <Link to="/shop" key={i} className="group relative overflow-hidden rounded-xl aspect-[4/5] md:aspect-square shadow-md cursor-pointer hover:shadow-xl transition-all duration-300 block">
               <div 
                 className="absolute inset-0 bg-cover bg-center group-hover:scale-110 transition-transform duration-700"
                 style={{ backgroundImage: `url("${cat.img}")` }}
@@ -62,7 +64,7 @@ const Home = () => {
               <div className="absolute bottom-0 p-5 w-full flex flex-col gap-1">
                 <p className="text-white text-xl font-bold leading-tight group-hover:text-primary transition-colors">{cat.name}</p>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </section>
@@ -73,14 +75,14 @@ const Home = () => {
             <h2 className="text-2xl md:text-3xl font-bold">This Week's Favorites</h2>
             <p className="text-gray-500 mt-2">Curated selection for the perfect brew.</p>
           </div>
-          <button className="text-primary font-bold flex items-center gap-1 hover:gap-2 transition-all">
+          <Link to="/shop" className="text-primary font-bold flex items-center gap-1 hover:gap-2 transition-all">
             View All <span className="material-symbols-outlined text-sm">arrow_forward</span>
-          </button>
+          </Link>
         </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
           {favorites.map((item, i) => (
-            <div key={i} className="flex flex-col gap-3 group">
+            <Link to="/product/1" key={i} className="flex flex-col gap-3 group">
               <div className="relative aspect-[4/5] rounded-xl overflow-hidden bg-surface-light">
                 {item.tag && (
                   <span className={`absolute top-3 left-3 text-xs font-bold px-2 py-1 rounded-sm z-10 ${item.tag === 'BEST SELLER' ? 'bg-primary text-[#0d1b10]' : 'bg-white/90 text-[#0d1b10] backdrop-blur-md'}`}>
@@ -96,7 +98,7 @@ const Home = () => {
                 </div>
                 <p className="text-sm text-gray-500">{item.desc}</p>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </section>
@@ -121,9 +123,11 @@ const Home = () => {
                 <li className="flex items-center gap-3"><span className="material-symbols-outlined text-primary">check_circle</span> Plastic-free Packaging</li>
                 <li className="flex items-center gap-3"><span className="material-symbols-outlined text-primary">check_circle</span> Fair Trade Practices</li>
               </ul>
-              <button className="mt-4 px-8 py-3 bg-[#0d1b10] text-white font-bold rounded-lg hover:bg-opacity-80 transition-opacity">
-                Read Our Mission
-              </button>
+              <Link to="/about">
+                <button className="mt-4 px-8 py-3 bg-[#0d1b10] text-white font-bold rounded-lg hover:bg-opacity-80 transition-opacity">
+                  Read Our Mission
+                </button>
+              </Link>
             </div>
           </div>
         </div>

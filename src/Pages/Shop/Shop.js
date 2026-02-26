@@ -232,9 +232,11 @@ const Shop = () => {
             <p className="text-gray-200 font-medium mb-8">
               Every blend in our vault is carefully vetted by tea masters to ensure unparalleled quality and environmental harmony.
             </p>
-            <button className="bg-primary hover:bg-primary/90 text-[#0d1b10] font-black px-8 py-3 rounded-xl transition-transform hover:scale-105 shadow-lg shadow-primary/20">
-              Learn About Our Process
-            </button>
+            <Link to="/about">
+              <button className="bg-primary hover:bg-primary/90 text-[#0d1b10] font-black px-8 py-3 rounded-xl transition-transform hover:scale-105 shadow-lg shadow-primary/20">
+                Learn About Our Process
+              </button>
+            </Link>
           </div>
         </div>
       </div>

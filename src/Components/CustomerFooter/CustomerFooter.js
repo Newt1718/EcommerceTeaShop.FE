@@ -42,8 +42,8 @@ const CustomerFooter = () => {
         <div className="col-span-1">
           <h3 className="font-bold mb-4 text-lg">Support</h3>
           <ul className="flex flex-col gap-3 text-sm text-gray-500 font-medium">
-            <li><Link to="/" className="hover:text-primary transition-colors">Contact Us</Link></li>
-            <li><Link to="/" className="hover:text-primary transition-colors">FAQs</Link></li>
+            <li><Link to="/contact" className="hover:text-primary transition-colors">Contact Us</Link></li>
+            <li><Link to="/faq" className="hover:text-primary transition-colors">FAQs</Link></li>
             <li><Link to="/" className="hover:text-primary transition-colors">Shipping Policy</Link></li>
             <li><Link to="/" className="hover:text-primary transition-colors">Returns & Refund</Link></li>
           </ul>
