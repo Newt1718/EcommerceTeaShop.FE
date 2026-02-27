@@ -20,6 +20,8 @@ import OurStory from "../Pages/OurStory/OurStory";
 import Sustainability from "../Pages/Sustainability/Sustainability";
 import TeaVerification from "../Pages/TeaVerification/TeaVerification";
 import TeaExperts from "../Pages/TeaExperts/TeaExperts";
+import ShippingPolicy from "../Pages/ShippingPolicy/ShippingPolicy";
+import ReturnsRefund from "../Pages/ReturnsRefund/ReturnsRefund";
 
 const Routers = () => {
   const { isAuthenticated, user } = useSelector(
@@ -47,6 +49,9 @@ const Routers = () => {
         { path: "sustainability", element: <Sustainability /> },
         { path: "tea-verification", element: <TeaVerification /> },
         { path: "tea-experts", element: <TeaExperts /> },
+        { path: "shipping-policy", element: <ShippingPolicy /> },
+        { path: "returns-refund", element: <ReturnsRefund /> },
+        
       ],
     },
 
