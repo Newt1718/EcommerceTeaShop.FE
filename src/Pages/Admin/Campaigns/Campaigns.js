@@ -20,7 +20,6 @@ const Campaigns = () => {
   return (
     <div className="flex-1 overflow-y-scroll p-4 md:p-8 bg-gray-50 text-slate-900 min-h-screen relative">
       
-      {/* 1. CAMPAIGN MODAL */}
       {isCampaignModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm transition-opacity p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl border border-slate-100">
@@ -74,7 +73,6 @@ const Campaigns = () => {
         </div>
       )}
 
-      {/* 2. ASSET UPLOAD MODAL */}
       {isAssetModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm transition-opacity p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-slate-100">
@@ -129,7 +127,6 @@ const Campaigns = () => {
         </div>
       )}
 
-      {/* 3. VOUCHER MODAL */}
       {isVoucherModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm transition-opacity p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-slate-100">

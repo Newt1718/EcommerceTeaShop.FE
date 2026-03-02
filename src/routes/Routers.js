@@ -29,6 +29,9 @@ import Orders from "../Pages/Admin/Orders/Orders";
 import ProductEdit from "../Pages/Admin/Products/ProductEdit";
 import Products from "../Pages/Admin/Products/Products";
 import Campaigns from "../Pages/Admin/Campaigns/Campaigns";
+import QRSystem from "../Pages/Admin/QRSystem/QRSystem";
+import Customers from "../Pages/Admin/Customers/Customers";
+import Support from "../Pages/Admin/Support/Support";
 
 const Routers = () => {
   const { isAuthenticated, user } = useSelector(
@@ -80,7 +83,10 @@ const Routers = () => {
         { path: "products", element: <Products /> },
         { path: "products/edit", element: <ProductEdit /> },
         { path: "products/add", element: <ProductEdit /> },
-        { path: "campaigns", element: <Campaigns /> }
+        { path: "campaigns", element: <Campaigns /> },
+        { path: "qr-system", element: <QRSystem /> },
+        { path: "customers", element: <Customers /> },
+        { path: "support", element: <Support /> }        
         
       ],
     },

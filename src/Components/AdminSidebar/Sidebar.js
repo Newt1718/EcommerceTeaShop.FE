@@ -25,13 +25,13 @@ function Sidebar() {
       title: "Content & Campaigns",
       items: [
         { path: "/admin/campaigns", label: "Banners & Vouchers", icon: "campaign" },
-        { path: "/admin/knowledge-base", label: "Tea Matrix & Blogs", icon: "menu_book" },
+        { path: "/admin/knowledge-base", label: "Articles & Guides", icon: "menu_book" },
       ]
     },
     {
       title: "Users & Support",
       items: [
-        { path: "/admin/customers", label: "Customers & Reviews", icon: "groups" },
+        { path: "/admin/customers", label: "Users & Reviews", icon: "groups" },
         { path: "/admin/support", label: "Customer Support", icon: "support_agent" },
       ]
     }
@@ -70,7 +70,11 @@ function Sidebar() {
                             : "text-gray-600 hover:bg-gray-50 font-medium"
                         }`}
                       >
-                        <span className={`material-symbols-outlined text-[20px] ${isActive ? 'font-variation-settings-\'FILL\'1' : ''}`}>
+                        {/* Inline style used here to ensure Google Material Symbols fill triggers correctly */}
+                        <span 
+                          className="material-symbols-outlined text-[20px]"
+                          style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}
+                        >
                           {item.icon}
                         </span>
                         <span className="text-sm">{item.label}</span>
