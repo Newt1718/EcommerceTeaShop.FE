@@ -19,8 +19,7 @@ const CustomerFooter = () => {
             </h2>
           </Link>
           <p className="text-sm text-gray-500 mt-2 pr-4">
-            Expert-verified premium teas from authentic artisan growers
-            worldwide.
+            Premium teas from authentic artisan growers.
           </p>
           <div className="flex gap-4 mt-4">
             <Social
@@ -90,14 +89,6 @@ const CustomerFooter = () => {
             </li>
             <li>
               <Link
-                to="/tea-verification"
-                className="hover:text-primary transition-colors"
-              >
-                Tea Verification
-              </Link>
-            </li>
-            <li>
-              <Link
                 to="/sustainability"
                 className="hover:text-primary transition-colors"
               >
@@ -112,14 +103,14 @@ const CustomerFooter = () => {
                 The Vault Journal
               </Link>
             </li>
-            <li>
+            {/* <li>
               <Link
                 to="/tea-experts"
                 className="hover:text-primary transition-colors"
               >
                 Tea Experts
               </Link>
-            </li>
+            </li> */}
           </ul>
         </div>
 

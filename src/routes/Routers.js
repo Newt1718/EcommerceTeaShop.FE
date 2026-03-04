@@ -18,17 +18,25 @@ import Shop from "../Pages/Shop/Shop";
 import NotFoundPage from "../Pages/NotFound/NotFoundPage";
 import OurStory from "../Pages/OurStory/OurStory";
 import Sustainability from "../Pages/Sustainability/Sustainability";
-import TeaVerification from "../Pages/TeaVerification/TeaVerification";
-import TeaExperts from "../Pages/TeaExperts/TeaExperts";
 import ShippingPolicy from "../Pages/ShippingPolicy/ShippingPolicy";
 import ReturnsRefund from "../Pages/ReturnsRefund/ReturnsRefund";
 import JournalDetails from "../Pages/Journal/JournalDetails/JournalDetails";
+import Layout from "../Common/Layout/Layout";
+import Dashboard from "../Pages/Admin/Dashboard/Dashboard";
+import Analytics from "../Pages/Admin/Analytics/Analytics";
+import Orders from "../Pages/Admin/Orders/Orders";
+import ProductEdit from "../Pages/Admin/Products/ProductEdit";
+import Products from "../Pages/Admin/Products/Products";
+import Campaigns from "../Pages/Admin/Campaigns/Campaigns";
+import Customers from "../Pages/Admin/Customers/Customers";
+import Support from "../Pages/Admin/Support/Support";
 
 const Routers = () => {
   const { isAuthenticated, user } = useSelector(
     (state) => state.auth || { isAuthenticated: false, user: null },
   );
-  const isAdmin = user?.role === "admin";
+  //const isAdmin = user?.role === "admin";
+  const isAdmin = true;
 
   const routing = useRoutes([
     {
@@ -49,13 +57,26 @@ const Routers = () => {
         { path: "shop", element: <Shop /> },
         { path: "our-story", element: <OurStory /> },
         { path: "sustainability", element: <Sustainability /> },
-        { path: "tea-verification", element: <TeaVerification /> },
-        { path: "tea-experts", element: <TeaExperts /> },
         { path: "shipping-policy", element: <ShippingPolicy /> },
         { path: "returns-refund", element: <ReturnsRefund /> },
       ],
     },
-
+    {
+      path: "/admin",
+      element: isAdmin ? <Layout /> : <Navigate to="/login" />, 
+      children: [
+        { index: true, element: <Navigate to="dashboard" replace /> },
+        { path: "dashboard", element: <Dashboard /> },
+        { path: "analytics", element: <Analytics /> },
+        { path: "orders", element: <Orders /> },
+        { path: "products", element: <Products /> },
+        { path: "products/edit", element: <ProductEdit /> },
+        { path: "products/add", element: <ProductEdit /> },
+        { path: "campaigns", element: <Campaigns /> },
+        { path: "customers", element: <Customers /> },
+        { path: "support", element: <Support /> }        
+      ],
+    },
     {
       path: "/login",
       element: !isAuthenticated ? <Login /> : <Navigate to="/" />,

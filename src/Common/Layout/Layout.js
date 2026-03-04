@@ -1,14 +1,17 @@
 import React, { useState } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "../../Components/AdminSidebar/Sidebar";
+import Navbar from "../../Navbar/Navbar";
 
 function Layout() {
   return (
-    <div className={`min-h-screen transition-all duration-500 bg-gray-50`}>
-      <div className="flex">
-        <Sidebar />
-
-        <main className="flex-1 overflow-auto">
+    <div className="flex h-screen bg-gray-50 overflow-hidden text-slate-900">
+      <Sidebar />
+      
+      <div className="flex flex-col flex-1 w-full overflow-hidden">
+        <Navbar />
+        
+        <main className="flex-1 overflow-y-auto">
           <Outlet />
         </main>
       </div>
