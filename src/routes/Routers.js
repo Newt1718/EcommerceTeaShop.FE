@@ -23,13 +23,11 @@ import ReturnsRefund from "../Pages/ReturnsRefund/ReturnsRefund";
 import JournalDetails from "../Pages/Journal/JournalDetails/JournalDetails";
 import Layout from "../Common/Layout/Layout";
 import Dashboard from "../Pages/Admin/Dashboard/Dashboard";
-import Analytics from "../Pages/Admin/Analytics/Analytics";
 import Orders from "../Pages/Admin/Orders/Orders";
 import ProductEdit from "../Pages/Admin/Products/ProductEdit";
 import Products from "../Pages/Admin/Products/Products";
 import Campaigns from "../Pages/Admin/Campaigns/Campaigns";
 import Customers from "../Pages/Admin/Customers/Customers";
-import Support from "../Pages/Admin/Support/Support";
 
 const Routers = () => {
   const { isAuthenticated, user } = useSelector(
@@ -67,14 +65,12 @@ const Routers = () => {
       children: [
         { index: true, element: <Navigate to="dashboard" replace /> },
         { path: "dashboard", element: <Dashboard /> },
-        { path: "analytics", element: <Analytics /> },
         { path: "orders", element: <Orders /> },
         { path: "products", element: <Products /> },
         { path: "products/edit", element: <ProductEdit /> },
         { path: "products/add", element: <ProductEdit /> },
         { path: "campaigns", element: <Campaigns /> },
         { path: "customers", element: <Customers /> },
-        { path: "support", element: <Support /> }        
       ],
     },
     {

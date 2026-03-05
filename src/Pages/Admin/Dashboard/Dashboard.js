@@ -19,21 +19,13 @@ const Dashboard = () => {
     <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-gray-50 text-[#102213] min-h-screen">
       <div className="max-w-7xl mx-auto space-y-8">
         
-        {/* Page Heading */}
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h2 className="text-3xl font-black tracking-tight text-[#102213]">System Overview</h2>
             <p className="text-gray-500 mt-1">TeaVault Central Management & Analytics Console.</p>
           </div>
-          <div className="flex items-center gap-3">
-            <button className="flex items-center justify-center gap-2 h-10 px-6 bg-blue-600 hover:bg-blue-700 transition-colors rounded-lg text-white font-bold text-sm shadow-md">
-              <span className="material-symbols-outlined text-[20px]">qr_code_scanner</span>
-              <span>Generate QR Batch</span>
-            </button>
-          </div>
         </div>
 
-        {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="p-6 rounded-xl bg-white border border-gray-100 shadow-sm">
             <div className="flex justify-between items-start mb-4">
@@ -112,10 +104,8 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Right Column Stack */}
           <div className="flex flex-col gap-6">
             
-            {/* Media & Content Panel */}
             <div className="flex flex-col rounded-xl bg-white border border-gray-100 shadow-sm p-6">
               <h3 className="font-bold text-lg mb-6">Media & Campaign Control</h3>
               <div className="flex flex-col gap-5">
@@ -134,7 +124,6 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* NEW: Support & Feedback Widget */}
             <div className="flex flex-col rounded-xl bg-white border border-gray-100 shadow-sm p-6">
               <h3 className="font-bold text-lg mb-4">Support & Feedback</h3>
               <div className="flex flex-col gap-4">
@@ -158,7 +147,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Recent Orders Table */}
         <div className="flex flex-col rounded-xl bg-white border border-gray-100 shadow-sm overflow-hidden">
           <div className="p-6 border-b border-gray-100 flex justify-between items-center">
             <h3 className="font-bold text-lg">Transaction Evidence (Recent)</h3>

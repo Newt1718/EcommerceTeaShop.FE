@@ -9,7 +9,6 @@ function Sidebar() {
       title: "Overview",
       items: [
         { path: "/admin/dashboard", label: "Dashboard Overview", icon: "dashboard" },
-        { path: "/admin/analytics", label: "Sales Analytics", icon: "monitoring" },
       ]
     },
     {
@@ -29,7 +28,6 @@ function Sidebar() {
       title: "Users & Support",
       items: [
         { path: "/admin/customers", label: "Users & Reviews", icon: "groups" },
-        { path: "/admin/support", label: "Customer Support", icon: "support_agent" },
       ]
     }
   ];

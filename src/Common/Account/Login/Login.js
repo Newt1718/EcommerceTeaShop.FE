@@ -1,12 +1,32 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { loginStart, loginSuccess } from "../../../redux/authSlice/authSlice";
 
 const Login = () => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  
+  const { loading } = useSelector((state) => state.auth || { loading: false });
 
   const handleLogin = (e) => {
     e.preventDefault();
-    navigate("/");
+    
+    dispatch(loginStart());
+
+    setTimeout(() => {
+      const mockUserData = {
+        id: "USR-001",
+        name: "Admin User",
+        email: email,
+        role: "admin",
+      };
+
+      dispatch(loginSuccess(mockUserData));
+      navigate("/admin/dashboard");
+    }, 1200);
   };
 
   return (
@@ -47,6 +67,8 @@ const Login = () => {
                 <input
                   id="email"
                   type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
                   className="block w-full rounded-xl border border-gray-200 py-3 pl-10 text-[#0d1b10] bg-white focus:ring-2 focus:ring-primary focus:border-transparent sm:text-sm sm:leading-6 transition-all"
                   placeholder="you@example.com"
@@ -70,6 +92,8 @@ const Login = () => {
                 <input
                   id="password"
                   type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   required
                   className="block w-full rounded-xl border border-gray-200 py-3 pl-10 pr-10 text-[#0d1b10] bg-white focus:ring-2 focus:ring-primary focus:border-transparent sm:text-sm sm:leading-6 transition-all"
                   placeholder="••••••••"
@@ -90,9 +114,14 @@ const Login = () => {
 
             <button
               type="submit"
-              className="flex w-full justify-center rounded-xl bg-primary px-3 py-3 text-sm font-bold leading-6 text-[#0d1b10] shadow-md hover:bg-primary/90 transition-transform hover:scale-[1.02]"
+              disabled={loading}
+              className="flex w-full justify-center items-center gap-2 rounded-xl bg-primary px-3 py-3 text-sm font-bold leading-6 text-[#0d1b10] shadow-md hover:bg-primary/90 transition-transform hover:scale-[1.02] disabled:opacity-70"
             >
-              Log In
+              {loading ? (
+                <span className="material-symbols-outlined animate-spin text-[20px]">sync</span>
+              ) : (
+                "Log In"
+              )}
             </button>
           </form>
 
@@ -164,8 +193,7 @@ const Login = () => {
         </div>
         <img
           alt="Serene tea ceremony setup with green matcha tea, bamboo whisk, and ceramic cups on a wooden table"
-          class="w-full h-full object-cover object-center opacity-90 dark:opacity-60"
-          data-alt="Serene tea ceremony setup with green matcha tea, bamboo whisk, and ceramic cups on a wooden table"
+          className="w-full h-full object-cover object-center opacity-90 dark:opacity-60"
           src="https://lh3.googleusercontent.com/aida-public/AB6AXuDqnZ-LwkyON-UQi0zYA2vT6-ffDxKpADQ9wj0QNT4GWnWVPZ-ukkAUWiXLF4ZdHrBH1uV8M6Z_GBMiEXBsE_9eG4Qu-M7NIqJqLu8BNDs8vJUfz53tZsKEayVUpvU-t-MRBGbS698yDMi1V6qGKIKPwW7YQtoxp7hwdrPSRhk1ZagPtyhaHF0zDAslviAgw-bj0DUVWixN4HFvd5zK856OqV4OCX5fu-gQSTS14kqz90KKYN-YwhwfLTFwWFFB5E60ijxhYM6wHXfx"
         />
       </div>
