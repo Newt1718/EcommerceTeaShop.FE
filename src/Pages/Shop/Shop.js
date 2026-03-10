@@ -4,19 +4,15 @@ import ProductGrid from "./ProductGrid";
 import Pagination from "../../Components/Pagination/Pagination";
 
 const Shop = () => {
-  const [priceRange, setPriceRange] = useState(100);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedTypes, setSelectedTypes] = useState([]);
-  const [selectedOrigins, setSelectedOrigins] = useState([]);
   const [sortBy, setSortBy] = useState("Nổi bật");
 
   const ITEMS_PER_PAGE = 6;
 
   const handleReset = () => {
-    setPriceRange(100);
     setCurrentPage(1);
     setSelectedTypes([]);
-    setSelectedOrigins([]);
     setSortBy("Nổi bật");
   };
 
@@ -24,115 +20,82 @@ const Shop = () => {
     setList((prev) =>
       prev.includes(item) ? prev.filter((i) => i !== item) : [...prev, item],
     );
-    setCurrentPage(1); // Reset to page 1 when filtering
+    setCurrentPage(1);
   };
-
-  const baseProducts = [
+  const products = [
     {
       id: 1,
-      name: "Imperial Matcha",
-      type: "Trà xanh",
-      origin: "Uji, Nhật Bản",
-      rating: "4.9",
-      price: "$28.00",
-      size: "Hộp 30g",
-      desc: "Bột xanh hạng lễ nghi với nốt umami rõ nét.",
-      badge: "Bán chạy",
-      badgeColor: "bg-primary text-[#0d1b10]",
-      img: "https://lh3.googleusercontent.com/aida-public/AB6AXuAacKjJEwsR2ONaRZe8c_yYC9f2EaBCNBdkoeD3rk5u_YLjwLTTHq3caX4VBTeFhwaZhCXMwfx1uede07YocpZfbz3zSm4dDTeMArH9il756PAY_KRPdxzaH7dSLsSkDuSCWtylICi5fyAIpFKVpfHoYqtkzrNVIw_LC_8kxSc_G2hCDK6BjEVeFI1QeS40XT_nN2m1HECvuM5iS1ISCqku9IWzMdPOmlERjwo-TyhEFiRMMCsyrVn_rvuE28vZW2_9hVi6b426Ln22",
+      name: "Trà Tân Cương Signature",
+      type: "Trà Tân Cương",
+      origin: "Tân Cương, Thái Nguyên",
+      rating: "5.0",
+      price: "$25.00",
+      size: "Hộp 100g",
+      desc: "Lá trà tôm một búp được sao thủ công cho hậu vị ngọt thanh kéo dài.",
+      badge: "Đặc sản vùng",
+      badgeColor: "bg-emerald-200 text-emerald-900",
+      img: "https://static.hotdeal.vn/images/618/618027/500x500/126343-tra-tan-cuong-thai-nguyen-thom-ngon-tinh-khiet-500g.jpg",
     },
     {
       id: 2,
-      name: "Sencha Reserve",
+      name: "Bộ sưu tập Trà Xanh",
       type: "Trà xanh",
-      origin: "Shizuoka, Nhật Bản",
-      rating: "4.7",
-      price: "$16.50",
-      size: "Túi 100g",
-      desc: "Trà xanh hấp kỹ với mùi cỏ đậm, hương cỏ non và hậu ngọt.",
-      img: "https://lh3.googleusercontent.com/aida-public/AB6AXuBLUAXmxJa8DR4Q4uI5HFGdZtwiPKB7eoAoCnBvpW-BQoM1Zo9gg1tYHsDXr4sop91GdPYo1i2PgmFpu2MFkfigzm4Y-_Esgcs5I26KBFWQ7t4gpx4z9emSFR_4mnQjeYJlzK2BcJnlxCyLdWq5r41U6Z9jXvU-IV9d05fjKmc964yzzE4Ej4LLPxviPV0sAm_WElsB9OnJttyMUq93CJXuA0vPn41iIDrrG7pq8D5T-8MznrvcY1lAcKo3Z2TNgWl0pn6Qs-i5Q7af",
+      origin: "Sắp ra mắt",
+      rating: "—",
+      price: "$0.00",
+      size: "Đang cập nhật",
+      desc: "Dòng trà xanh cao cấp đang trong giai đoạn hoàn thiện chất lượng.",
+      badge: "Coming soon",
+      badgeColor: "bg-gray-900/80 text-white",
+      comingSoon: true,
     },
     {
       id: 3,
-      name: "Jasmine Pearls",
-      type: "Trà xanh",
-      origin: "Phúc Kiến, Trung Quốc",
-      rating: "4.8",
-      price: "$22.00",
-      oldPrice: "$28.00",
-      size: "Hộp 50g",
-      desc: "Viên trà vò tay ướp hoa nhài tươi.",
-      badge: "Giảm giá",
-      badgeColor: "bg-red-500 text-white",
-      img: "https://lh3.googleusercontent.com/aida-public/AB6AXuBa3a1VM20Me0D-3SLjzYpzZuu8aEkA4-vCSPOPpQo3In4iq_18dE872EXoIp1MWh5eXsQ6o4jYb-C4wbgYlG1v4Vdi01oZBANGqrtuipcK2HRgI8z4zPAvf4iVdk86RDe2HgjQSaaiZAoMjuOF_apnjHd94kDl7kO8Kscg9TmSwOMDn0ZbM_gsNB7C3QMuxRu7EbU0QRVfjKoBdzaz5T6zOAd67ZtQzxVc2elQMmcRmJAx_BFaIS76wHrBEI1Nb6MUCyDSCuAdB7ep",
+      name: "Bộ sưu tập Trà Đen",
+      type: "Trà đen",
+      origin: "Sắp ra mắt",
+      rating: "—",
+      price: "$0.00",
+      size: "Đang cập nhật",
+      desc: "Những mẻ trà đen đậm hương malt sẽ xuất hiện trong thời gian tới.",
+      badge: "Coming soon",
+      badgeColor: "bg-gray-900/80 text-white",
+      comingSoon: true,
     },
     {
       id: 4,
-      name: "Milk Oolong",
+      name: "Bộ sưu tập Trà Oolong",
       type: "Trà Oolong",
-      origin: "Đài Loan",
-      rating: "5.0",
-      price: "$32.00",
-      size: "Túi 75g",
-      desc: "Béo mượt tự nhiên với mùi hoa rõ nét.",
-      img: "https://lh3.googleusercontent.com/aida-public/AB6AXuDeJTOy1I4Hrk7_GpxYikfBfw1GNqzV1vdbvGwtAVUTCu_BRorMewJc_U7jORsfmWUJd7FR5ZWPR5kAR3RMd_u5Ef7-nwhvuUE7Gcivry2wqpKXFLOKSl6B0Z5HtW0_NjsjYMLk2lNi2M7TfvE4w3MF84YXMcE9iKFJk07V7YeF60iIEEc3EoFeEACDdFGDqOqHwTBV0IbWKIb0nNo7W13prt5sNl7iasXLmnIMTYAKLcrtR6ZYrjcka9KhzhYgUbrFG-kZjkiPv0O1",
+      origin: "Sắp ra mắt",
+      rating: "—",
+      price: "$0.00",
+      size: "Đang cập nhật",
+      desc: "Các phiên bản Oolong rang nhẹ, kem sữa sẽ sớm mở bán.",
+      badge: "Coming soon",
+      badgeColor: "bg-gray-900/80 text-white",
+      comingSoon: true,
     },
     {
       id: 5,
-      name: "Earl Grey Superior",
-      type: "Trà đen",
-      origin: "Assam, Ấn Độ",
-      rating: "4.6",
-      price: "$14.00",
-      size: "Túi 100g",
-      desc: "Trà đen đậm vị với tinh dầu bergamot cao cấp.",
-      img: "https://lh3.googleusercontent.com/aida-public/AB6AXuCGsQ67LpE7LXnpncD0HODoayKRWX6J_SFC8NxrHG6LFL5b3qzAwmaSds7iSTxnayAEJDivWLzxZzdQC1WZDb1HfDA4cCpG83ZR5eWWluPFWBdTs0_if-ChNFtdz1UU3jqwPonq_G-0DMlZmLxYEGjfzKqpvDWE_04IBqkw_MrpdvutW5A_v2WbgC7JQMod4YkObI64yM8qBm-yD9Q9txm4JpYShY_D4CHFzwmNv4hnWTyIHabp-iNPqeSg2efq5OOhxN-3ObE_wp3B",
+      name: "Bộ sưu tập Trà Thảo Mộc",
+      type: "Trà thảo mộc",
+      origin: "Sắp ra mắt",
+      rating: "—",
+      price: "$0.00",
+      size: "Đang cập nhật",
+      desc: "Các blend thảo mộc thư giãn, tốt cho giấc ngủ đang được ươm mẻ đầu tiên.",
+      badge: "Coming soon",
+      badgeColor: "bg-gray-900/80 text-white",
+      comingSoon: true,
     },
-    {
-      id: 6,
-      name: "Kyoto Genmaicha",
-      type: "Trà xanh",
-      origin: "Kyoto, Nhật Bản",
-      rating: "4.9",
-      price: "$18.00",
-      size: "Túi 100g",
-      desc: "Trà xanh kết hợp gạo lứt rang nổ.",
-      badge: "Giới hạn",
-      badgeColor: "bg-gray-900/80 text-white backdrop-blur-sm",
-      img: "https://lh3.googleusercontent.com/aida-public/AB6AXuB3OGReXx6tkaV-I_QekT7XrthlnELOXvauVdZwPjMQPmW6uUzVCcaz3f7l_aTa77DyauV38857t9ErJbPObX1BV47Q0EhbvFHHO4-a-LuQDkTGqEYq77CrSKRhuv-uVDjU0x-QnAkJ48a90TJG6DML_zdSRYByHq4BSZQpbX2pmD9MWVPyrlI-EuEmOeffSYuzlwU5zHmEoevWrVGLzDnYjqLA5hRuudv2CwSpqKhpjv-uvoaxTcGomd2AYOCdUP1UOWqQ5KR5wS_w",
-    },
-  ];
-
-  // Duplicate data to test pagination (12 items total)
-  const products = [
-    ...baseProducts,
-    ...baseProducts.map((p) => ({
-      ...p,
-      id: p.id + 6,
-      name: `${p.name} (Lô 2)`,
-    })),
   ];
 
   // 1. Filter
   let processedProducts = products.filter((item) => {
-    const itemPrice = parseFloat(item.price.replace("$", ""));
-    const matchPrice = itemPrice <= priceRange;
-
-    const originMap = {
-      "Uji, Nhật Bản": "Nhật Bản (Uji)",
-      "Shizuoka, Nhật Bản": "Nhật Bản (Uji)",
-      "Kyoto, Nhật Bản": "Nhật Bản (Uji)",
-      "Phúc Kiến, Trung Quốc": "Trung Quốc (Phúc Kiến)",
-      "Assam, Ấn Độ": "Ấn Độ (Assam)",
-    };
-
     const matchType =
       selectedTypes.length === 0 || selectedTypes.includes(item.type);
-    const matchOrigin =
-      selectedOrigins.length === 0 ||
-      selectedOrigins.includes(originMap[item.origin]);
 
-    return matchPrice && matchType && matchOrigin;
+    return matchType;
   });
 
   // 2. Sort
@@ -157,7 +120,7 @@ const Shop = () => {
     currentPage * ITEMS_PER_PAGE,
   );
 
-  const activeFilters = [...selectedTypes, ...selectedOrigins];
+  const activeFilters = [...selectedTypes];
 
   return (
     <div className="flex flex-col items-center w-full min-h-screen pb-20 font-display bg-background-light text-[#0d1b10]">
@@ -190,12 +153,12 @@ const Shop = () => {
             </button>
           </div>
 
-          <div className="mb-6">
+          <div>
             <h4 className="text-xs font-black mb-4 uppercase tracking-widest text-gray-400">
               Loại trà
             </h4>
             <div className="space-y-3">
-              {["Trà xanh", "Trà đen", "Trà Oolong", "Trà thảo mộc"].map((type) => (
+              {["Trà Tân Cương", "Trà xanh", "Trà đen", "Trà Oolong", "Trà thảo mộc"].map((type) => (
                 <label
                   key={type}
                   className="flex items-center gap-3 cursor-pointer group"
@@ -216,61 +179,6 @@ const Shop = () => {
             </div>
           </div>
 
-          <div className="mb-6 border-t border-gray-100 pt-6">
-            <h4 className="text-xs font-black mb-4 uppercase tracking-widest text-gray-400">
-              Nguồn gốc
-            </h4>
-            <div className="space-y-3">
-                {["Nhật Bản (Uji)", "Trung Quốc (Phúc Kiến)", "Ấn Độ (Assam)"].map(
-                (origin) => (
-                  <label
-                    key={origin}
-                    className="flex items-center gap-3 cursor-pointer group"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedOrigins.includes(origin)}
-                      onChange={() =>
-                        toggleFilter(
-                          origin,
-                          selectedOrigins,
-                          setSelectedOrigins,
-                        )
-                      }
-                      className="rounded border-gray-300 text-primary focus:ring-primary/20 bg-transparent"
-                    />
-                    <span className="text-sm font-medium group-hover:text-primary transition-colors">
-                      {origin}
-                    </span>
-                  </label>
-                ),
-              )}
-            </div>
-          </div>
-
-          <div className="border-t border-gray-100 pt-6">
-            <h4 className="text-xs font-black mb-4 uppercase tracking-widest text-gray-400">
-              Khoảng giá
-            </h4>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={priceRange}
-              onChange={(e) => {
-                setPriceRange(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
-              style={{
-                background: `linear-gradient(to right, #22c55e ${priceRange}%, #e5e7eb ${priceRange}%)`,
-              }}
-            />
-            <div className="flex justify-between mt-2 text-xs font-bold text-gray-400">
-              <span>$0</span>
-              <span className="text-primary">${priceRange}</span>
-            </div>
-          </div>
         </aside>
 
         <div className="flex-1 w-full">
@@ -286,12 +194,6 @@ const Shop = () => {
                     onClick={() => {
                       if (selectedTypes.includes(filter))
                         toggleFilter(filter, selectedTypes, setSelectedTypes);
-                      if (selectedOrigins.includes(filter))
-                        toggleFilter(
-                          filter,
-                          selectedOrigins,
-                          setSelectedOrigins,
-                        );
                     }}
                     className="hover:text-red-500 flex items-center"
                   >
