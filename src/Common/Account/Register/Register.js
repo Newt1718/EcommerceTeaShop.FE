@@ -1,12 +1,101 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import { registerApi, resendOtpApi, verifyOtpApi } from "../../../services/authApi";
+
+const REGISTER_STEP = {
+  FORM: "form",
+  OTP: "otp",
+};
 
 const Register = ({ onBackToLogin }) => {
   const navigate = useNavigate();
+  const [step, setStep] = useState(REGISTER_STEP.FORM);
+  const [loading, setLoading] = useState(false);
+  const [resendingOtp, setResendingOtp] = useState(false);
+  const [formData, setFormData] = useState({
+    fullName: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    otp: "",
+  });
 
-  const handleRegister = (e) => {
-    e.preventDefault();
-    navigate("/");
+  const canSubmit = useMemo(() => {
+    return (
+      formData.fullName.trim() &&
+      formData.email.trim() &&
+      formData.password.length >= 8 &&
+      formData.password === formData.confirmPassword
+    );
+  }, [formData]);
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setFormData((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
+  };
+
+  const handleRegister = async (event) => {
+    event.preventDefault();
+
+    if (!canSubmit) {
+      toast.error("Vui long nhap dung thong tin dang ky.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const payload = {
+        fullName: formData.fullName,
+        email: formData.email,
+        password: formData.password,
+      };
+      const response = await registerApi(payload);
+      toast.success(response?.message || "Dang ky thanh cong. Vui long nhap OTP.");
+      setStep(REGISTER_STEP.OTP);
+    } catch (error) {
+      toast.error(error?.message || "Dang ky that bai.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (event) => {
+    event.preventDefault();
+
+    if (!formData.otp.trim()) {
+      toast.error("Vui long nhap ma OTP.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await verifyOtpApi({
+        email: formData.email,
+        otp: formData.otp,
+      });
+      toast.success(response?.message || "Xac thuc email thanh cong.");
+      navigate("/login");
+    } catch (error) {
+      toast.error(error?.message || "Xac thuc OTP that bai.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    try {
+      setResendingOtp(true);
+      const response = await resendOtpApi({ email: formData.email });
+      toast.success(response?.message || "Da gui lai ma OTP.");
+    } catch (error) {
+      toast.error(error?.message || "Khong the gui lai OTP.");
+    } finally {
+      setResendingOtp(false);
+    }
   };
 
   return (
@@ -17,159 +106,168 @@ const Register = ({ onBackToLogin }) => {
           className="absolute top-8 left-8 flex items-center gap-2 text-gray-500 hover:text-primary transition-colors font-bold text-sm"
         >
           <span className="material-symbols-outlined text-lg">arrow_back</span>
-          Về cửa hàng
+          Ve cua hang
         </Link>
 
         <div className="mx-auto w-full max-w-sm lg:w-96">
           <div className="mb-10 text-center lg:text-left">
             <h1 className="text-3xl font-black tracking-tight text-[#0d1b10] mb-3">
-              Tạo tài khoản
+              {step === REGISTER_STEP.FORM ? "Tao tai khoan" : "Xac thuc email"}
             </h1>
             <p className="text-sm text-gray-500 font-medium">
-              Đăng ký để theo dõi đơn hàng, lưu yêu thích và tích điểm thành viên.
+              {step === REGISTER_STEP.FORM
+                ? "Dang ky de theo doi don hang, luu yeu thich va tich diem thanh vien."
+                : `Nhap ma OTP da gui den ${formData.email}.`}
             </p>
           </div>
 
-          <div className="flex flex-col gap-4 mb-6">
-            <button className="flex items-center justify-center gap-2 h-12 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition-colors shadow-sm font-bold text-sm">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 48 48"
-                className="w-5 h-5"
-              >
-                <path
-                  fill="#FFC107"
-                  d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"
-                />
-                <path
-                  fill="#FF3D00"
-                  d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"
-                />
-                <path
-                  fill="#4CAF50"
-                  d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"
-                />
-                <path
-                  fill="#1976D2"
-                  d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571.001-.001.002-.001.003-.002l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"
-                />
-              </svg>
-              Google
-            </button>
-          </div>
-
-          <div className="relative flex items-center mb-6">
-            <div className="flex-grow border-t border-gray-200"></div>
-            <span className="flex-shrink-0 mx-4 text-gray-400 text-sm font-medium">
-              Hoặc đăng ký bằng email
-            </span>
-            <div className="flex-grow border-t border-gray-200"></div>
-          </div>
-
-          <form onSubmit={handleRegister} className="flex flex-col gap-5">
-            <div>
-              <label
-                htmlFor="fullName"
-                className="block text-sm font-bold leading-6 text-[#0d1b10] mb-2"
-              >
-                Họ và tên
-              </label>
-              <div className="relative rounded-md shadow-sm">
-                <span className="material-symbols-outlined absolute left-0 top-0 flex h-full items-center pl-3 text-gray-400 !text-[20px] pointer-events-none">
-                  person
-                </span>
+          {step === REGISTER_STEP.FORM ? (
+            <form onSubmit={handleRegister} className="flex flex-col gap-5">
+              <div>
+                <label
+                  htmlFor="fullName"
+                  className="block text-sm font-bold leading-6 text-[#0d1b10] mb-2"
+                >
+                  Ho va ten
+                </label>
                 <input
                   id="fullName"
+                  name="fullName"
                   type="text"
                   required
-                  className="block w-full rounded-xl border border-gray-200 py-3 pl-10 pr-4 text-[#0d1b10] bg-white focus:ring-2 focus:ring-primary focus:border-transparent sm:text-sm transition-all"
-                  placeholder="ví dụ: Nguyễn Văn A"
+                  value={formData.fullName}
+                  onChange={handleChange}
+                  className="block w-full rounded-xl border border-gray-200 py-3 px-4 text-[#0d1b10] bg-white focus:ring-2 focus:ring-primary focus:border-transparent sm:text-sm transition-all"
+                  placeholder="Vi du: Nguyen Van A"
                 />
               </div>
-            </div>
 
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-bold leading-6 text-[#0d1b10] mb-2"
-              >
-                Địa chỉ email
-              </label>
-              <div className="relative rounded-md shadow-sm">
-                <span className="material-symbols-outlined absolute left-0 top-0 flex h-full items-center pl-3 text-gray-400 !text-[20px] pointer-events-none">
-                  mail
-                </span>
+              <div>
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-bold leading-6 text-[#0d1b10] mb-2"
+                >
+                  Dia chi email
+                </label>
                 <input
                   id="email"
+                  name="email"
                   type="email"
                   required
-                  className="block w-full rounded-xl border border-gray-200 py-3 pl-10 pr-4 text-[#0d1b10] bg-white focus:ring-2 focus:ring-primary focus:border-transparent sm:text-sm transition-all"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="block w-full rounded-xl border border-gray-200 py-3 px-4 text-[#0d1b10] bg-white focus:ring-2 focus:ring-primary focus:border-transparent sm:text-sm transition-all"
                   placeholder="jane@example.com"
                 />
               </div>
-            </div>
 
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-bold leading-6 text-[#0d1b10] mb-2"
-              >
-                Mật khẩu
-              </label>
-              <div className="relative rounded-md shadow-sm">
-                <span className="material-symbols-outlined absolute left-0 top-0 flex h-full items-center pl-3 text-gray-400 !text-[20px] pointer-events-none">
-                  lock
-                </span>
+              <div>
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-bold leading-6 text-[#0d1b10] mb-2"
+                >
+                  Mat khau
+                </label>
                 <input
                   id="password"
+                  name="password"
                   type="password"
                   required
-                  className="block w-full rounded-xl border border-gray-200 py-3 pl-10 pr-4 text-[#0d1b10] bg-white focus:ring-2 focus:ring-primary focus:border-transparent sm:text-sm transition-all"
-                  placeholder="••••••••"
+                  minLength={8}
+                  value={formData.password}
+                  onChange={handleChange}
+                  className="block w-full rounded-xl border border-gray-200 py-3 px-4 text-[#0d1b10] bg-white focus:ring-2 focus:ring-primary focus:border-transparent sm:text-sm transition-all"
+                  placeholder="Toi thieu 8 ky tu"
                 />
               </div>
-            </div>
 
-            <div className="flex items-start gap-3 mt-2">
-              <input
-                type="checkbox"
-                id="terms"
-                required
-                className="mt-1 w-4 h-4 text-primary bg-white border-gray-300 rounded focus:ring-primary"
-              />
-              <label
-                htmlFor="terms"
-                className="text-sm text-gray-600 font-medium"
+              <div>
+                <label
+                  htmlFor="confirmPassword"
+                  className="block text-sm font-bold leading-6 text-[#0d1b10] mb-2"
+                >
+                  Xac nhan mat khau
+                </label>
+                <input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  required
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  className="block w-full rounded-xl border border-gray-200 py-3 px-4 text-[#0d1b10] bg-white focus:ring-2 focus:ring-primary focus:border-transparent sm:text-sm transition-all"
+                  placeholder="Nhap lai mat khau"
+                />
+                {formData.confirmPassword && formData.password !== formData.confirmPassword && (
+                  <p className="mt-1 text-xs text-red-500">Mat khau xac nhan khong khop.</p>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full mt-2 h-12 flex items-center justify-center rounded-xl bg-primary hover:bg-primary/90 transition-transform hover:scale-[1.02] shadow-md text-[#0d1b10] text-base font-bold disabled:opacity-70"
               >
-                Tôi đồng ý với{" "}
-                <span className="text-primary hover:underline cursor-pointer">
-                  Điều khoản dịch vụ
-                </span>{" "}
-                và{" "}
-                <span className="text-primary hover:underline cursor-pointer">
-                  Chính sách bảo mật
-                </span>
-                .
-              </label>
-            </div>
+                {loading ? "Dang xu ly..." : "Tao tai khoan"}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleVerifyOtp} className="flex flex-col gap-5">
+              <div>
+                <label
+                  htmlFor="otp"
+                  className="block text-sm font-bold leading-6 text-[#0d1b10] mb-2"
+                >
+                  Ma OTP
+                </label>
+                <input
+                  id="otp"
+                  name="otp"
+                  type="text"
+                  required
+                  value={formData.otp}
+                  onChange={handleChange}
+                  className="block w-full rounded-xl border border-gray-200 py-3 px-4 text-[#0d1b10] bg-white focus:ring-2 focus:ring-primary focus:border-transparent sm:text-sm transition-all"
+                  placeholder="Nhap ma OTP"
+                />
+              </div>
 
-            <button
-              type="submit"
-              className="w-full mt-2 h-12 flex items-center justify-center rounded-xl bg-primary hover:bg-primary/90 transition-transform hover:scale-[1.02] shadow-md text-[#0d1b10] text-base font-bold"
-            >
-              Tạo tài khoản
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full h-12 flex items-center justify-center rounded-xl bg-primary hover:bg-primary/90 transition-transform hover:scale-[1.02] shadow-md text-[#0d1b10] text-base font-bold disabled:opacity-70"
+              >
+                {loading ? "Dang xu ly..." : "Xac thuc"}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleResendOtp}
+                disabled={resendingOtp}
+                className="w-full h-12 flex items-center justify-center rounded-xl bg-white border border-gray-200 hover:bg-gray-50 transition-colors text-[#0d1b10] text-base font-bold disabled:opacity-70"
+              >
+                {resendingOtp ? "Dang gui lai..." : "Gui lai OTP"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStep(REGISTER_STEP.FORM)}
+                className="text-primary font-bold hover:underline"
+              >
+                Quay lai
+              </button>
+            </form>
+          )}
 
           <p className="text-center mt-8 text-sm text-gray-500 font-medium">
-            Đã có tài khoản?{" "}
+            Da co tai khoan?{" "}
             <button
               onClick={() =>
                 onBackToLogin ? onBackToLogin() : navigate("/login")
               }
               className="text-primary font-bold hover:underline cursor-pointer"
             >
-              Đăng nhập
+              Dang nhap
             </button>
           </p>
         </div>
@@ -182,27 +280,6 @@ const Register = ({ onBackToLogin }) => {
           alt="Serene matcha tea setup"
           className="absolute inset-0 h-full w-full object-cover opacity-90"
         />
-
-        <div className="absolute bottom-12 left-12 right-12 z-20">
-          <div className="backdrop-blur-md bg-white/90 p-8 rounded-2xl shadow-xl max-w-lg">
-            <div className="flex items-start gap-4">
-              <div className="p-3 bg-primary/20 rounded-full text-primary">
-                <span className="material-symbols-outlined !text-[32px]">
-                  spa
-                </span>
-              </div>
-              <div>
-                <h3 className="text-xl font-black text-[#0d1b10] mb-2">
-                  Trà chất lượng cao
-                </h3>
-                <p className="text-gray-600 font-medium leading-relaxed">
-                  "Tham gia hơn 20,000 người yêu trà đã tìm thấy hương vị
-                  hoàn hảo cùng chúng tôi. Trải nghiệm độ tươi mới lạ."
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { logout } from "../../redux/authSlice/authSlice";
+import { logoutApi } from "../../services/authApi";
 
 const CustomerNavbar = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -9,7 +10,15 @@ const CustomerNavbar = () => {
   const navigate = useNavigate();
 
   const products = useSelector((state) => state.cart?.products) || [];
-  const { isAuthenticated, user } = useSelector((state) => state.auth || { isAuthenticated: false, user: null });
+  const { isAuthenticated, user, accessToken, refreshToken } = useSelector(
+    (state) =>
+      state.auth || {
+        isAuthenticated: false,
+        user: null,
+        accessToken: null,
+        refreshToken: null,
+      },
+  );
 
   const totalItems = products.reduce((total, product) => {
     const productTotal =
@@ -21,9 +30,14 @@ const CustomerNavbar = () => {
   }, 0);
 
   const handleLogout = () => {
+    if (accessToken && refreshToken) {
+      // Logout API is best-effort; local sign-out should not be blocked.
+      logoutApi({ accessToken, refreshToken }).catch(() => {});
+    }
+
     dispatch(logout());
     setIsProfileOpen(false);
-    window.location.href = "/";
+    navigate("/");
   };
 
   return (

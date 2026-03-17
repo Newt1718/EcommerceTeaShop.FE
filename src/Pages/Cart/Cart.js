@@ -1,17 +1,53 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import {
   addToCart,
   decreaseQuantity,
   removeItem,
+  setCartProducts,
 } from "../../redux/cartSlice/cartSlice.js";
+import { getCartApi, normalizeCartProducts } from "../../services/cartApi";
+import { toast } from "react-toastify";
 
 const Cart = () => {
   const dispatch = useDispatch();
+  const [loading, setLoading] = useState(true);
 
   // 1. Get data from Redux
   const products = useSelector((state) => state.cart.products);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadCart() {
+      try {
+        setLoading(true);
+        const response = await getCartApi();
+        const normalizedProducts = normalizeCartProducts(response?.data);
+        if (mounted) {
+          dispatch(setCartProducts(normalizedProducts));
+        }
+      } catch (error) {
+        const message = error?.message || "Khong tai duoc gio hang.";
+        if (mounted && message.includes("Giỏ hàng trống")) {
+          dispatch(setCartProducts([]));
+        } else if (mounted) {
+          toast.error(message);
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadCart();
+
+    return () => {
+      mounted = false;
+    };
+  }, [dispatch]);
 
   // 2. Flatten nested structure for the UI list
   const flatCartItems =
@@ -55,7 +91,11 @@ const Cart = () => {
               </h1>
             </div>
 
-            {flatCartItems.length === 0 ? (
+            {loading ? (
+              <div className="text-center py-20">
+                <p className="text-gray-500 text-lg">Dang tai gio hang...</p>
+              </div>
+            ) : flatCartItems.length === 0 ? (
               <div className="text-center py-20">
                 <p className="text-gray-500 text-lg">Giỏ hàng của bạn đang trống.</p>
                 <Link

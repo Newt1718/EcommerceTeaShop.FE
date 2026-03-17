@@ -3,16 +3,17 @@ import { Link } from "react-router-dom";
 
 const ProductCard = ({ item }) => {
   const isComingSoon = Boolean(item.comingSoon);
-  const Wrapper = isComingSoon ? "div" : Link;
   const originLabel = isComingSoon ? "Sắp ra mắt" : item.origin;
   const ratingLabel = isComingSoon ? "…" : item.rating;
-  const priceLabel = isComingSoon ? "Sắp ra mắt" : item.price;
+  const priceLabel = isComingSoon
+    ? "Sắp ra mắt"
+    : item.priceLabel || `$${Number(item.price || 0).toFixed(2)}`;
   const sizeLabel = isComingSoon ? "Đang cập nhật" : item.size;
 
   return (
-    <Wrapper
-      {...(!isComingSoon ? { to: `/product/${item.id}` } : {})}
-      className={`group flex flex-col bg-white rounded-2xl overflow-hidden border border-gray-100 hover:border-primary/30 hover:shadow-xl transition-all duration-300 ${isComingSoon ? "pointer-events-none opacity-95" : ""}`}
+    <Link
+      to={`/product/${item.id}`}
+      className={`group flex flex-col bg-white rounded-2xl overflow-hidden border border-gray-100 hover:border-primary/30 hover:shadow-xl transition-all duration-300 ${isComingSoon ? "opacity-95" : ""}`}
     >
       <div className="relative aspect-[4/3] overflow-hidden bg-surface-light">
         {item.img ? (
@@ -72,7 +73,7 @@ const ProductCard = ({ item }) => {
           <span className="text-xs font-bold text-gray-400">{sizeLabel}</span>
         </div>
       </div>
-    </Wrapper>
+    </Link>
   );
 };
 

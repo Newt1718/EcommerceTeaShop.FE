@@ -1,32 +1,134 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { loginStart, loginSuccess } from "../../../redux/authSlice/authSlice";
+import { toast } from "react-toastify";
+import {
+  loginStart,
+  loginSuccess,
+  loginFailure,
+} from "../../../redux/authSlice/authSlice";
+import { googleLoginApi, loginApi } from "../../../services/authApi";
 
 const Login = () => {
+  const GOOGLE_CLIENT_ID =
+    "766536791944-jietteh15oj8jiul6bvpce7123aegjo2.apps.googleusercontent.com";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isGoogleReady, setIsGoogleReady] = useState(false);
   const navigate = useNavigate();
   const dispatch = useDispatch();
   
   const { loading } = useSelector((state) => state.auth || { loading: false });
 
-  const handleLogin = (e) => {
+  const handleAuthSuccess = (authData, fallbackEmail, authProvider = "local") => {
+    const role = authData?.role || "User";
+
+    dispatch(
+      loginSuccess({
+        user: {
+          email: authData?.email || fallbackEmail || "",
+          name: authData?.email || fallbackEmail || "",
+          role,
+          authProvider,
+        },
+        accessToken: authData?.accessToken,
+        refreshToken: authData?.refreshToken,
+      }),
+    );
+
+    toast.success("Dang nhap thanh cong.");
+
+    if (role.toLowerCase() === "admin") {
+      navigate("/admin/dashboard");
+    } else {
+      navigate("/");
+    }
+  };
+
+  useEffect(() => {
+    const markGoogleReady = () => {
+      if (window.google?.accounts?.id) {
+        setIsGoogleReady(true);
+      }
+    };
+
+    if (window.google?.accounts?.id) {
+      markGoogleReady();
+      return;
+    }
+
+    const existingScript = document.getElementById("google-identity-script");
+    if (existingScript) {
+      existingScript.addEventListener("load", markGoogleReady);
+      return () => {
+        existingScript.removeEventListener("load", markGoogleReady);
+      };
+    }
+
+    const script = document.createElement("script");
+    script.id = "google-identity-script";
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.addEventListener("load", markGoogleReady);
+    document.body.appendChild(script);
+
+    return () => {
+      script.removeEventListener("load", markGoogleReady);
+    };
+  }, []);
+
+  const handleGoogleLogin = () => {
+    if (!window.google?.accounts?.id) {
+      toast.error("Google Identity Services chua san sang.");
+      return;
+    }
+
+    window.google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: async (response) => {
+        console.log("Google ID token:", response.credential);
+
+        if (!response?.credential) {
+          toast.error("Khong lay duoc Google credential.");
+          return;
+        }
+
+        dispatch(loginStart());
+
+        try {
+          const apiResponse = await googleLoginApi({
+            idToken: response.credential,
+          });
+          handleAuthSuccess(apiResponse?.data || {}, "", "google");
+        } catch (error) {
+          const errorMessage = error?.message || "Dang nhap Google that bai.";
+          dispatch(loginFailure(errorMessage));
+          toast.error(errorMessage);
+        }
+      },
+    });
+
+    window.google.accounts.id.prompt();
+  };
+
+  const handleLogin = async (e) => {
     e.preventDefault();
-    
+
     dispatch(loginStart());
 
-    setTimeout(() => {
-      const mockUserData = {
-        id: "USR-001",
-        name: "Admin User",
-        email: email,
-        role: "admin",
-      };
+    try {
+      const response = await loginApi({
+        email,
+        password,
+      });
 
-      dispatch(loginSuccess(mockUserData));
-      navigate("/admin/dashboard");
-    }, 1200);
+      handleAuthSuccess(response?.data || {}, email, "local");
+    } catch (error) {
+      const errorMessage = error?.message || "Dang nhap that bai.";
+      dispatch(loginFailure(errorMessage));
+      toast.error(errorMessage);
+    }
   };
 
   return (
@@ -141,7 +243,12 @@ const Login = () => {
             </div>
 
             <div className="mt-6 grid gap-4">
-              <button className="flex w-full items-center justify-center gap-3 rounded-xl bg-white px-3 py-2 text-sm font-bold text-[#0d1b10] shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
+              <button
+                type="button"
+                onClick={handleGoogleLogin}
+                disabled={!isGoogleReady}
+                className="flex w-full items-center justify-center gap-3 rounded-xl bg-white px-3 py-2 text-sm font-bold text-[#0d1b10] shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-60"
+              >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 48 48"
@@ -164,7 +271,7 @@ const Login = () => {
                     d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571.001-.001.002-.001.003-.002l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"
                   />
                 </svg>
-                Google
+                Login with Google
               </button>
             </div>
           </div>

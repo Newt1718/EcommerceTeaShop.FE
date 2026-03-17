@@ -1,13 +1,174 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { toast } from 'react-toastify';
+import { changePasswordApi } from '../../services/authApi';
+import { addAddressApi, deleteAddressApi, getAddressesApi } from '../../services/addressApi';
 
 const ProfileOverview = () => {
-  const { isAuthenticated, user } = useSelector((state) => state.auth || { isAuthenticated: false, user: null });
+  const { isAuthenticated, user, accessToken } = useSelector((state) => state.auth || { isAuthenticated: false, user: null, accessToken: null });
   
   const [activeView, setActiveView] = useState('overview');
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showAddressModal, setShowAddressModal] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
+  const [savingAddress, setSavingAddress] = useState(false);
+  const [deletingAddressId, setDeletingAddressId] = useState(null);
+  const [addresses, setAddresses] = useState([]);
+  const [addressForm, setAddressForm] = useState({
+    fullName: user?.name || '',
+    phone: '',
+    addressLine: '',
+    city: '',
+    district: '',
+    ward: '',
+    isDefault: false,
+  });
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+
+  const isGoogleUser = (user?.authProvider || '').toLowerCase() === 'google';
+  const fetchAddresses = async () => {
+    try {
+      setLoadingAddresses(true);
+      const response = await getAddressesApi();
+      const list = Array.isArray(response?.data) ? response.data : [];
+      setAddresses(list);
+    } catch (error) {
+      toast.error(error?.message || 'Không tải được danh sách địa chỉ.');
+    } finally {
+      setLoadingAddresses(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchAddresses();
+    }
+  }, [isAuthenticated]);
+
+  const handlePasswordInputChange = (event) => {
+    const { name, value } = event.target;
+    setPasswordForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const closePasswordModal = () => {
+    setShowPasswordModal(false);
+    setPasswordForm({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+    });
+  };
+
+  const closeAddressModal = () => {
+    setShowAddressModal(false);
+    setAddressForm({
+      fullName: user?.name || '',
+      phone: '',
+      addressLine: '',
+      city: '',
+      district: '',
+      ward: '',
+      isDefault: false,
+    });
+  };
+
+  const handleAddressInputChange = (event) => {
+    const { name, value, type, checked } = event.target;
+    setAddressForm((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    }));
+  };
+
+  const handleAddAddress = async (event) => {
+    event.preventDefault();
+
+    if (!addressForm.fullName || !addressForm.phone || !addressForm.addressLine || !addressForm.city || !addressForm.district || !addressForm.ward) {
+      toast.error('Vui lòng nhập đầy đủ thông tin địa chỉ.');
+      return;
+    }
+
+    try {
+      setSavingAddress(true);
+      const response = await addAddressApi({
+        fullName: addressForm.fullName,
+        phone: addressForm.phone,
+        addressLine: addressForm.addressLine,
+        city: addressForm.city,
+        district: addressForm.district,
+        ward: addressForm.ward,
+        isDefault: addressForm.isDefault,
+      });
+      toast.success(response?.message || 'Thêm địa chỉ thành công.');
+      closeAddressModal();
+      await fetchAddresses();
+    } catch (error) {
+      toast.error(error?.message || 'Không thể thêm địa chỉ.');
+    } finally {
+      setSavingAddress(false);
+    }
+  };
+
+  const handleDeleteAddress = async (id) => {
+    try {
+      setDeletingAddressId(id);
+      const response = await deleteAddressApi(id);
+      toast.success(response?.message || 'Xóa địa chỉ thành công.');
+      await fetchAddresses();
+    } catch (error) {
+      toast.error(error?.message || 'Không thể xóa địa chỉ.');
+    } finally {
+      setDeletingAddressId(null);
+    }
+  };
+
+  const handleChangePassword = async (event) => {
+    event.preventDefault();
+
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      toast.error('Vui long nhap day du thong tin mat khau.');
+      return;
+    }
+
+    if (passwordForm.newPassword.length < 8) {
+      toast.error('Mat khau moi can it nhat 8 ky tu.');
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error('Xac nhan mat khau moi khong khop.');
+      return;
+    }
+
+    if (!accessToken) {
+      toast.error('Ban can dang nhap lai de doi mat khau.');
+      return;
+    }
+
+    try {
+      setChangingPassword(true);
+      const response = await changePasswordApi({
+        accessToken,
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
+      toast.success(response?.message || 'Doi mat khau thanh cong.');
+      closePasswordModal();
+    } catch (error) {
+      toast.error(error?.message || 'Doi mat khau that bai.');
+    } finally {
+      setChangingPassword(false);
+    }
+  };
 
   if (!isAuthenticated) {
     return <Navigate to="/" replace />;
@@ -21,22 +182,22 @@ const ProfileOverview = () => {
           <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl">
             <h3 className="text-2xl font-black text-[#0d1b10] mb-2">Đổi mật khẩu</h3>
             <p className="text-sm text-gray-500 mb-6">Tạo mật khẩu mới an toàn cho tài khoản của bạn.</p>
-            <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); setShowPasswordModal(false); alert("Đang mô phỏng cập nhật mật khẩu..."); }}>
+            <form className="space-y-4" onSubmit={handleChangePassword}>
               <div>
                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 px-1">Mật khẩu hiện tại</label>
-                <input type="password" required className="w-full rounded-xl border border-gray-200 bg-surface-light py-3 px-4 font-semibold text-[#0d1b10] focus:ring-2 focus:ring-primary focus:border-transparent mt-1" />
+                <input name="currentPassword" type="password" value={passwordForm.currentPassword} onChange={handlePasswordInputChange} required className="w-full rounded-xl border border-gray-200 bg-surface-light py-3 px-4 font-semibold text-[#0d1b10] focus:ring-2 focus:ring-primary focus:border-transparent mt-1" />
               </div>
               <div>
                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 px-1">Mật khẩu mới</label>
-                <input type="password" required className="w-full rounded-xl border border-gray-200 bg-surface-light py-3 px-4 font-semibold text-[#0d1b10] focus:ring-2 focus:ring-primary focus:border-transparent mt-1" />
+                <input name="newPassword" type="password" value={passwordForm.newPassword} onChange={handlePasswordInputChange} required className="w-full rounded-xl border border-gray-200 bg-surface-light py-3 px-4 font-semibold text-[#0d1b10] focus:ring-2 focus:ring-primary focus:border-transparent mt-1" />
               </div>
               <div>
                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 px-1">Xác nhận mật khẩu mới</label>
-                <input type="password" required className="w-full rounded-xl border border-gray-200 bg-surface-light py-3 px-4 font-semibold text-[#0d1b10] focus:ring-2 focus:ring-primary focus:border-transparent mt-1" />
+                <input name="confirmPassword" type="password" value={passwordForm.confirmPassword} onChange={handlePasswordInputChange} required className="w-full rounded-xl border border-gray-200 bg-surface-light py-3 px-4 font-semibold text-[#0d1b10] focus:ring-2 focus:ring-primary focus:border-transparent mt-1" />
               </div>
               <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setShowPasswordModal(false)} className="flex-1 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100 transition-colors">Hủy</button>
-                <button type="submit" className="flex-1 py-3 rounded-xl bg-primary text-[#0d1b10] font-bold hover:bg-primary/90 transition-transform hover:scale-[1.02] shadow-sm">Cập nhật</button>
+                <button type="button" onClick={closePasswordModal} className="flex-1 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100 transition-colors" disabled={changingPassword}>Hủy</button>
+                <button type="submit" className="flex-1 py-3 rounded-xl bg-primary text-[#0d1b10] font-bold hover:bg-primary/90 transition-transform hover:scale-[1.02] shadow-sm disabled:opacity-70" disabled={changingPassword}>{changingPassword ? 'Dang cap nhat...' : 'Cập nhật'}</button>
               </div>
             </form>
           </div>
@@ -48,18 +209,31 @@ const ProfileOverview = () => {
           <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl">
             <h3 className="text-2xl font-black text-[#0d1b10] mb-2">Địa chỉ giao hàng</h3>
             <p className="text-sm text-gray-500 mb-6">Cập nhật nơi bạn muốn nhận trà.</p>
-            <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); setShowAddressModal(false); alert("Đang mô phỏng lưu địa chỉ..."); }}>
+            <form className="space-y-4" onSubmit={handleAddAddress}>
               <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 px-1">Nhãn địa chỉ (vd. Nhà, Công ty)</label>
-                <input type="text" defaultValue="Giao đến campus" required className="w-full rounded-xl border border-gray-200 bg-surface-light py-3 px-4 font-semibold text-[#0d1b10] focus:ring-2 focus:ring-primary focus:border-transparent mt-1" />
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 px-1">Họ và tên</label>
+                <input name="fullName" type="text" value={addressForm.fullName} onChange={handleAddressInputChange} required className="w-full rounded-xl border border-gray-200 bg-surface-light py-3 px-4 font-semibold text-[#0d1b10] focus:ring-2 focus:ring-primary focus:border-transparent mt-1" />
               </div>
               <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 px-1">Địa chỉ đầy đủ</label>
-                <textarea rows="3" required defaultValue="FPT University Campus&#13;&#10;Hòa Lạc Hi-Tech Park&#13;&#10;Thạch Thất, Hà Nội, Việt Nam" className="w-full rounded-xl border border-gray-200 bg-surface-light py-3 px-4 font-semibold text-[#0d1b10] focus:ring-2 focus:ring-primary focus:border-transparent mt-1 resize-none"></textarea>
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 px-1">Số điện thoại</label>
+                <input name="phone" type="text" value={addressForm.phone} onChange={handleAddressInputChange} required className="w-full rounded-xl border border-gray-200 bg-surface-light py-3 px-4 font-semibold text-[#0d1b10] focus:ring-2 focus:ring-primary focus:border-transparent mt-1" />
               </div>
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 px-1">Địa chỉ</label>
+                <input name="addressLine" type="text" value={addressForm.addressLine} onChange={handleAddressInputChange} required className="w-full rounded-xl border border-gray-200 bg-surface-light py-3 px-4 font-semibold text-[#0d1b10] focus:ring-2 focus:ring-primary focus:border-transparent mt-1" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <input name="ward" placeholder="Phường/Xã" type="text" value={addressForm.ward} onChange={handleAddressInputChange} required className="w-full rounded-xl border border-gray-200 bg-surface-light py-3 px-4 font-semibold text-[#0d1b10] focus:ring-2 focus:ring-primary focus:border-transparent" />
+                <input name="district" placeholder="Quận/Huyện" type="text" value={addressForm.district} onChange={handleAddressInputChange} required className="w-full rounded-xl border border-gray-200 bg-surface-light py-3 px-4 font-semibold text-[#0d1b10] focus:ring-2 focus:ring-primary focus:border-transparent" />
+                <input name="city" placeholder="Tỉnh/Thành phố" type="text" value={addressForm.city} onChange={handleAddressInputChange} required className="w-full rounded-xl border border-gray-200 bg-surface-light py-3 px-4 font-semibold text-[#0d1b10] focus:ring-2 focus:ring-primary focus:border-transparent" />
+              </div>
+              <label className="flex items-center gap-2 text-sm text-gray-600">
+                <input name="isDefault" type="checkbox" checked={addressForm.isDefault} onChange={handleAddressInputChange} className="rounded border-gray-300 text-primary focus:ring-primary" />
+                Đặt làm địa chỉ mặc định
+              </label>
               <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setShowAddressModal(false)} className="flex-1 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100 transition-colors">Hủy</button>
-                <button type="submit" className="flex-1 py-3 rounded-xl bg-primary text-[#0d1b10] font-bold hover:bg-primary/90 transition-transform hover:scale-[1.02] shadow-sm">Lưu địa chỉ</button>
+                <button type="button" onClick={closeAddressModal} className="flex-1 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100 transition-colors" disabled={savingAddress}>Hủy</button>
+                <button type="submit" className="flex-1 py-3 rounded-xl bg-primary text-[#0d1b10] font-bold hover:bg-primary/90 transition-transform hover:scale-[1.02] shadow-sm disabled:opacity-70" disabled={savingAddress}>{savingAddress ? 'Đang lưu...' : 'Lưu địa chỉ'}</button>
               </div>
             </form>
           </div>
@@ -84,13 +258,15 @@ const ProfileOverview = () => {
             <span className="text-sm">Đơn hàng của tôi</span>
           </button>
           
-          <button 
-            onClick={() => setShowPasswordModal(true)} 
-            className="w-full flex items-center gap-3 rounded-xl px-5 py-4 text-gray-500 hover:text-[#0d1b10] hover:bg-surface-light transition-all font-medium text-left"
-          >
-            <span className="material-symbols-outlined text-[22px]">lock_reset</span>
-            <span className="text-sm">Đổi mật khẩu</span>
-          </button>
+          {!isGoogleUser && (
+            <button 
+              onClick={() => setShowPasswordModal(true)} 
+              className="w-full flex items-center gap-3 rounded-xl px-5 py-4 text-gray-500 hover:text-[#0d1b10] hover:bg-surface-light transition-all font-medium text-left"
+            >
+              <span className="material-symbols-outlined text-[22px]">lock_reset</span>
+              <span className="text-sm">Đổi mật khẩu</span>
+            </button>
+          )}
         </nav>
       </aside>
 
@@ -135,19 +311,26 @@ const ProfileOverview = () => {
                     <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-400">Địa chỉ giao hàng</h3>
                     <button onClick={() => setShowAddressModal(true)} className="text-xs font-bold text-primary hover:underline">Thêm mới</button>
                   </div>
-                  <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 relative group hover:border-primary transition-colors cursor-pointer">
-                    <span className="absolute top-4 right-4 text-[10px] font-bold uppercase tracking-widest text-primary bg-white px-2 py-1 rounded-md shadow-sm">Mặc định</span>
-                    <p className="font-bold text-[#0d1b10] mb-1">Giao đến campus</p>
-                    <p className="text-sm text-gray-600 leading-relaxed">
-                      FPT University Campus<br/>
-                      Hòa Lạc Hi-Tech Park<br/>
-                      Thạch Thất, Hà Nội, Việt Nam
-                    </p>
-                    <div className="mt-4 flex gap-3 relative z-10">
-                      <button onClick={() => setShowAddressModal(true)} className="text-xs font-bold text-gray-500 hover:text-primary transition-colors">Chỉnh sửa</button>
-                      <button onClick={() => alert('Đang mô phỏng xóa địa chỉ...')} className="text-xs font-bold text-gray-500 hover:text-red-500 transition-colors">Xóa</button>
+                  {loadingAddresses ? (
+                    <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-500">Đang tải địa chỉ...</div>
+                  ) : addresses.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-gray-200 bg-white p-4 text-sm text-gray-500">Bạn chưa có địa chỉ giao hàng.</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {addresses.map((address) => (
+                        <div key={address.id} className={`rounded-xl border p-4 relative group transition-colors ${address.isDefault ? 'border-primary/20 bg-primary/5 hover:border-primary' : 'border-gray-200 bg-white hover:border-primary/30'}`}>
+                          {address.isDefault && (
+                            <span className="absolute top-4 right-4 text-[10px] font-bold uppercase tracking-widest text-primary bg-white px-2 py-1 rounded-md shadow-sm">Mặc định</span>
+                          )}
+                          <p className="font-bold text-[#0d1b10] mb-1">{address.fullName} • {address.phone}</p>
+                          <p className="text-sm text-gray-600 leading-relaxed">{address.addressLine}, {address.ward}, {address.district}, {address.city}</p>
+                          <div className="mt-4 flex gap-3 relative z-10">
+                            <button onClick={() => handleDeleteAddress(address.id)} className="text-xs font-bold text-gray-500 hover:text-red-500 transition-colors disabled:opacity-60" disabled={deletingAddressId === address.id}>{deletingAddressId === address.id ? 'Đang xóa...' : 'Xóa'}</button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>

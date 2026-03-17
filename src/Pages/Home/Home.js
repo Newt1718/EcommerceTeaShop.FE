@@ -1,54 +1,100 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import HeroSlider from "../../Components/SlideBanner/HeroSlider";
+import { getProductsApi } from "../../services/productApi";
+
+function mapFavoriteProduct(item) {
+  return {
+    id: item?.id,
+    name: item?.name || "Sản phẩm",
+    price: Number(item?.price || 0),
+    desc: item?.origin || item?.categoryName || "Đang cập nhật",
+    tag: item?.featured ? "BÁN CHẠY" : "",
+    img:
+      item?.imageUrl ||
+      "https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=900&q=80",
+  };
+}
+
+function formatCurrency(value) {
+  return `$${Number(value || 0).toFixed(2)}`;
+}
 
 const Home = () => {
+  const [favorites, setFavorites] = useState([]);
+  const [favoritesLoading, setFavoritesLoading] = useState(true);
+
   const categories = [
     {
+      key: "green",
       name: "Trà xanh",
       img: "https://lh3.googleusercontent.com/aida-public/AB6AXuDNRoGoGQkdo5QM9Vve4ZOB1feIFhttSdYnDBa9PuEYtJOjiasM4eTnJYWaEb5RLoTpivN0JuFDNFb_N2rEzw-5Fu14CeggbygWEfzvK1nP1XpXexZiBpxPaU2J83GPuONIwUIDQ_rBvPw-QAqWmfd4-4I4tdqhOc1d0gfW6JlawhN9PAZECARqQ9wmwYDoY419n8ZHl0HaWNGlYu4saIZEy9RPltdbopNxyBaQdj9nW-YZ8voUXpr0O8Gb2usCmX8F_9Er3zNpL-1O",
     },
     {
-      name: "Trà đen",
+      key: "fruit",
+      name: "Trà trái cây",
       img: "https://lh3.googleusercontent.com/aida-public/AB6AXuAkf-g9s9uMf9fvsyf8HLC1FW5vk1LfrynxGZYHFHGQeFRfrxCfOO92uJZloNcIwZlmUJ7OXJcaM-IP5mjnn55YKJP_sQae2GuG0rmVWpcF9vkvUweqHrJZBMYs8P0ToVRdA8luRfeFurQXm2Cl96nj_ugGkyPP-9lqZNf9qafDdAzmnbjZiDbR3Xc3dDQ6x3nNtP_mIdngqgEsUZ7mw2MnMGaYgde2tgOJNX78Gvj67RpBOOE-dZWFxx4g79sz8fDpftsI9_b-q89V",
     },
     {
-      name: "Trà thảo mộc & hoa",
+      key: "herbal",
+      name: "Trà thảo mộc và hoa",
       img: "https://lh3.googleusercontent.com/aida-public/AB6AXuCEGJSAQyNEBumm6px14DPffIVc_3Kfq_fPaSwwRMmHgslFXO6o1i-zlXYk8VkZLOVGBH0pNSskkK2yba2W97zxoOSl_pWGpcf8WHhhAbHjVekwBTUl-Ew0ikknPDmcS7K2BCqPXswPYcKNM3ZLSmutxPEzukUuSUERP7i73W5JXkCn8d-HkLE8T-UUWvaJTQobyYhB6kTi2UTqzkDh3VLsAUPuKB5t8lU--loCpz_wBqP92pxqmKFDhR2LABaZVMSNRsRb5r3hBcnl",
     },
     {
+      key: "oolong",
       name: "Trà Oolong",
       img: "https://lh3.googleusercontent.com/aida-public/AB6AXuCGmX8G7ewmtAniJ0-9cI-yiKpCpOEhJJWBluWUzMo6K0YsSUlr0z5xB5gUIPwdvSoVZQhez9LAvbJGJM7zb7M-c1U8XLsE-P_7taBayqRFrsBL-FVytZ00Jz0_5UVMbWsMJIBFMXQWnRz41QJ7-O4sblWchYdVGomgx5oknDC1dnE79fNu3HB3ODDuVWgzsDn3-7KbiaZGN1zj-DpIbmDTKJljomALGrKPHuf_R9pyhGg1WecTsElO5XVSoss6V6VcHjzZ1Npa9L-1",
     },
   ];
 
-  const favorites = [
-    {
-      name: "Trà Tân Cương Signature",
-      price: "$25.00",
-      desc: "Tân Cương, Thái Nguyên",
-      tag: "BÁN CHẠY",
-      img: "https://lh3.googleusercontent.com/aida-public/AB6AXuBpbD9wGvMcg8GLVEn_SGumiks7WdyN7x6V1pcQLB0jIoZYHTTPC0tUQjihU9ZMA8tfswjnbZ0fgrGXacs7tzEXpl4rln6hXUSyRmm_oKAxcJmBjYpHHpfJkRgkQbk0UJiEb4qm4enu2OSsuytmcilwX8UdwOGrvpW2J-0NVQWkZElJcvxzbceyOrHWeNYE3RA3JOEpDfl3kLma4IWTEs9yhWIuVi1mftFaRthUurRlMHlPCHHSNyrUx177SfX-J_nJkiBQwww_nIdf",
-    },
-    {
-      name: "Trà Tân Cương Signature",
-      price: "$25.00",
-      desc: "Tân Cương, Thái Nguyên",
-      img: "https://lh3.googleusercontent.com/aida-public/AB6AXuAZBLHGSEEmSnk0iYNldBAfSDUfolpZ47Mqqj0pxPZ3lPCzXkcHTZO9iEvqyQ_3NzP_hyr9VCzvXeAzPVzXSIULvKG2x8PqmZM2m9Am_GgimYvyu4lQEyjse5S8qxPpZEKXwXa-kYaWkIBttkUpXnWViYaJToPbB5EkU_ECzf8d39JmqBkvPwk8th9amNRCo5Fqd7b59a-9XvhHF2QcGEwpYgJGWrtJbmgMUjR15wOblXSwAPfpHRF2um0TjvqgD0YOztyyl17Qjz30",
-    },
-    {
-      name: "Trà Tân Cương Signature",
-      price: "$25.00",
-      desc: "Tân Cương, Thái Nguyên",
-      img: "https://lh3.googleusercontent.com/aida-public/AB6AXuCGRiK3XSIGRHorzk6WWg_gNXQCYfizZCV1UYhOrBxi3X50YKI69KQ_pItdDsslTOYmMYEHvt3nzN6TFx3g20N7hlpMbLyAm-4BcHz2c1WFIrukUZnDBpYelR09-_FEjUn7wru4JF3Ot8T820Nr2m_bzPmCqjj3i1Tv00ectZMMMtOXK0kUOBWOEjUgIMzvyX3TGQWkpOQse_3xhBDGKz16ak8qCcNDvPET8xBnuBikvakH4lcq8MPeNilOnpVPxPqkHeM0vPu6C4Pa",
-    },
-    {
-      name: "Trà Tân Cương Signature",
-      price: "$25.00",
-      desc: "Tân Cương, Thái Nguyên",
-      img: "https://lh3.googleusercontent.com/aida-public/AB6AXuCGJxOODM_82_HKHum5B4_AEkuPro07maHXKTdOy8eI8FAFT_HDBKqURKZacXn3GItP2XvGQrLX-GDHtfHZeoELQ89s7nqPh_a5IaBMEy0QUQ6f2VBwjkYf_PzErc12fYok_8P0Gv0r2boe4mFYCgfCasE-1yqvUzAy0hQiQCKxmS7xxjHlpoo-m1_vOP-B--TTkI05JcyNeyape3sss8jbucTrPxMkYc9RuYyCXQIfnDgOwrZFRI5X-OVrTESe-A5T_Kszax1TKXT4",
-    },
-  ];
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadFavorites() {
+      setFavoritesLoading(true);
+      try {
+        const response = await getProductsApi({ pageNumber: 1, pageSize: 8 });
+        const list = Array.isArray(response?.data) ? response.data : [];
+        const mapped = list.map(mapFavoriteProduct).slice(0, 4);
+        if (mounted) {
+          setFavorites(mapped);
+        }
+      } catch (error) {
+        if (mounted) {
+          setFavorites([]);
+        }
+      } finally {
+        if (mounted) {
+          setFavoritesLoading(false);
+        }
+      }
+    }
+
+    loadFavorites();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const favoriteCards = useMemo(() => {
+    if (!favoritesLoading && favorites.length > 0) {
+      return favorites;
+    }
+
+    return Array.from({ length: 4 }).map((_, index) => ({
+      id: `skeleton-${index}`,
+      name: favoritesLoading ? "Đang tải..." : "Chưa có sản phẩm",
+      price: 0,
+      desc: favoritesLoading
+        ? "Vui lòng đợi trong giây lát"
+        : "Vui lòng quay lại sau",
+      tag: "",
+      img:
+        "https://images.unsplash.com/photo-1597481499750-3e6b22637e12?auto=format&fit=crop&w=900&q=80",
+      isPlaceholder: true,
+    }));
+  }, [favorites, favoritesLoading]);
 
   return (
     <div className="bg-background-light text-[#0d1b10] font-display">
@@ -67,7 +113,7 @@ const Home = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
           {categories.map((cat, i) => (
             <Link
-              to="/shop"
+              to={`/shop?categoryKey=${encodeURIComponent(cat.key)}`}
               key={i}
               className="group relative overflow-hidden rounded-xl aspect-[4/5] md:aspect-square shadow-md cursor-pointer hover:shadow-xl transition-all duration-300 block"
             >
@@ -108,8 +154,12 @@ const Home = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-          {favorites.map((item, i) => (
-            <Link to="/product/1" key={i} className="flex flex-col gap-3 group">
+          {favoriteCards.map((item, i) => (
+            <Link
+              to={item.isPlaceholder ? "/shop" : `/product/${item.id}`}
+              key={item.id || i}
+              className={`flex flex-col gap-3 group ${item.isPlaceholder ? "pointer-events-none" : ""}`}
+            >
               <div className="relative aspect-[4/5] rounded-xl overflow-hidden bg-surface-light">
                 {item.tag && (
                   <span
@@ -129,7 +179,7 @@ const Home = () => {
                   <h3 className="font-bold text-lg group-hover:text-primary transition-colors cursor-pointer">
                     {item.name}
                   </h3>
-                  <span className="font-bold">{item.price}</span>
+                  <span className="font-bold">{formatCurrency(item.price)}</span>
                 </div>
                 <p className="text-sm text-gray-500">{item.desc}</p>
               </div>

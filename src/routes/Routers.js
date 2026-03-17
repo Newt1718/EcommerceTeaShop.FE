@@ -35,8 +35,7 @@ const Routers = () => {
   const { isAuthenticated, user } = useSelector(
     (state) => state.auth || { isAuthenticated: false, user: null },
   );
-  //const isAdmin = user?.role === "admin";
-  const isAdmin = true;
+  const isAdmin = (user?.role || "").toLowerCase() === "admin";
 
   const routing = useRoutes([
     {

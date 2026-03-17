@@ -16,6 +16,11 @@ export const cartSlice = createSlice({
   name: "cart",
   initialState, // Use the merged initialState here
   reducers: {
+    setCartProducts: (state, action) => {
+      state.products = Array.isArray(action.payload) ? action.payload : [];
+      localStorage.setItem("cartList", JSON.stringify(state.products));
+    },
+
     addToCart: (state, action) => {
       const newItem = action.payload;
 
@@ -122,6 +127,7 @@ export const cartSlice = createSlice({
 });
 
 export const {
+  setCartProducts,
   addToCart,
   decreaseQuantity,
   increaseQuantity,

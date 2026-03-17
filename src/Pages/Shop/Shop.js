@@ -1,19 +1,87 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import ProductGrid from "./ProductGrid";
 import Pagination from "../../Components/Pagination/Pagination";
+import {
+  getCategoriesApi,
+  getProductsApi,
+  getProductsByCategoryApi,
+} from "../../services/productApi";
+
+const FALLBACK_TEA_TYPES = [
+  "Trà xanh",
+  "Trà ô long",
+  "Trà hoa",
+  "Trà thảo mộc",
+  "Trà trái cây",
+];
+
+const ITEMS_PER_PAGE = 6;
+
+function mapProduct(item) {
+  const firstImage = Array.isArray(item.images) ? item.images[0] : null;
+  return {
+    id: item.productId,
+    name: item.name,
+    type: item.categoryName || "Khác",
+    origin: item.categoryName || "Khác",
+    rating: "—",
+    price: Number(item.price || 0),
+    priceLabel: `$${Number(item.price || 0).toFixed(2)}`,
+    size: `Tồn kho ${Number(item.stockQuantity || 0)}`,
+    desc: item.description || "Chưa có mô tả.",
+    badge: item.isActive ? "Sản phẩm" : "Sắp ra mắt",
+    badgeColor: item.isActive
+      ? "bg-emerald-200 text-emerald-900"
+      : "bg-gray-900/80 text-white",
+    comingSoon: !item.isActive,
+    img: firstImage || null,
+  };
+}
+
+function normalizeText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function matchesCategoryKey(type, categoryKey) {
+  const normalizedType = normalizeText(type);
+  const key = normalizeText(categoryKey);
+
+  const keywordMap = {
+    green: ["green", "tra xanh", "xanh"],
+    fruit: ["fruit", "fruity", "tra trai cay", "trai cay"],
+    herbal: ["herbal", "thao moc", "hoa", "flower", "chamomile"],
+    oolong: ["oolong", "o long", "olong"],
+  };
+
+  const candidates = keywordMap[key] || [];
+  return candidates.some((word) => normalizedType.includes(word));
+}
 
 const Shop = () => {
+  const location = useLocation();
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedTypes, setSelectedTypes] = useState([]);
   const [sortBy, setSortBy] = useState("Nổi bật");
-
-  const ITEMS_PER_PAGE = 6;
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [searchInput, setSearchInput] = useState("");
+  const [appliedKeyword, setAppliedKeyword] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const handleReset = () => {
     setCurrentPage(1);
     setSelectedTypes([]);
     setSortBy("Nổi bật");
+    setSearchInput("");
+    setAppliedKeyword("");
   };
 
   const toggleFilter = (item, list, setList) => {
@@ -22,105 +90,138 @@ const Shop = () => {
     );
     setCurrentPage(1);
   };
-  const products = [
-    {
-      id: 1,
-      name: "Trà Tân Cương Signature",
-      type: "Trà Tân Cương",
-      origin: "Tân Cương, Thái Nguyên",
-      rating: "5.0",
-      price: "$25.00",
-      size: "Hộp 100g",
-      desc: "Lá trà tôm một búp được sao thủ công cho hậu vị ngọt thanh kéo dài.",
-      badge: "Đặc sản vùng",
-      badgeColor: "bg-emerald-200 text-emerald-900",
-      img: "https://static.hotdeal.vn/images/618/618027/500x500/126343-tra-tan-cuong-thai-nguyen-thom-ngon-tinh-khiet-500g.jpg",
-    },
-    {
-      id: 2,
-      name: "Bộ sưu tập Trà Xanh",
-      type: "Trà xanh",
-      origin: "Sắp ra mắt",
-      rating: "—",
-      price: "$0.00",
-      size: "Đang cập nhật",
-      desc: "Dòng trà xanh cao cấp đang trong giai đoạn hoàn thiện chất lượng.",
-      badge: "Coming soon",
-      badgeColor: "bg-gray-900/80 text-white",
-      comingSoon: true,
-    },
-    {
-      id: 3,
-      name: "Bộ sưu tập Trà Đen",
-      type: "Trà đen",
-      origin: "Sắp ra mắt",
-      rating: "—",
-      price: "$0.00",
-      size: "Đang cập nhật",
-      desc: "Những mẻ trà đen đậm hương malt sẽ xuất hiện trong thời gian tới.",
-      badge: "Coming soon",
-      badgeColor: "bg-gray-900/80 text-white",
-      comingSoon: true,
-    },
-    {
-      id: 4,
-      name: "Bộ sưu tập Trà Oolong",
-      type: "Trà Oolong",
-      origin: "Sắp ra mắt",
-      rating: "—",
-      price: "$0.00",
-      size: "Đang cập nhật",
-      desc: "Các phiên bản Oolong rang nhẹ, kem sữa sẽ sớm mở bán.",
-      badge: "Coming soon",
-      badgeColor: "bg-gray-900/80 text-white",
-      comingSoon: true,
-    },
-    {
-      id: 5,
-      name: "Bộ sưu tập Trà Thảo Mộc",
-      type: "Trà thảo mộc",
-      origin: "Sắp ra mắt",
-      rating: "—",
-      price: "$0.00",
-      size: "Đang cập nhật",
-      desc: "Các blend thảo mộc thư giãn, tốt cho giấc ngủ đang được ươm mẻ đầu tiên.",
-      badge: "Coming soon",
-      badgeColor: "bg-gray-900/80 text-white",
-      comingSoon: true,
-    },
-  ];
 
-  // 1. Filter
-  let processedProducts = products.filter((item) => {
-    const matchType =
-      selectedTypes.length === 0 || selectedTypes.includes(item.type);
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const response = await getCategoriesApi({ pageNumber: 1, pageSize: 50 });
+        const items = response?.data?.items || [];
+        setCategories(items);
+      } catch (apiError) {
+        console.log("[Shop] Không tải được category API, dùng fallback.");
+        setCategories([]);
+      }
+    };
 
-    return matchType;
-  });
+    loadCategories();
+  }, []);
 
-  // 2. Sort
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        let sourceItems = [];
+
+        if (selectedTypes.length === 1) {
+          const selectedCategory = categories.find(
+            (cat) => cat.name === selectedTypes[0],
+          );
+
+          if (selectedCategory?.categoryId) {
+            const response = await getProductsByCategoryApi({
+              categoryId: selectedCategory.categoryId,
+              pageNumber: 1,
+              pageSize: 100,
+            });
+            sourceItems = response?.data || [];
+          } else {
+            const response = await getProductsApi({ pageNumber: 1, pageSize: 100 });
+            sourceItems = response?.data?.items || [];
+          }
+        } else {
+          const response = await getProductsApi({ pageNumber: 1, pageSize: 100 });
+          sourceItems = response?.data?.items || [];
+        }
+
+        if (selectedTypes.length > 1) {
+          sourceItems = sourceItems.filter((item) =>
+            selectedTypes.includes(item.categoryName || "Khác"),
+          );
+        }
+
+        if (appliedKeyword.trim()) {
+          const keyword = normalizeText(appliedKeyword);
+          sourceItems = sourceItems.filter((item) => {
+            const target = normalizeText(
+              `${item.name} ${item.description} ${item.categoryName}`,
+            );
+            return target.includes(keyword);
+          });
+        }
+
+        setProducts(sourceItems.map(mapProduct));
+      } catch (apiError) {
+        setProducts([]);
+        setError(apiError?.message || "Không tải được danh sách sản phẩm.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProducts();
+  }, [appliedKeyword, selectedTypes, categories]);
+
+  const teaTypes = useMemo(() => {
+    const categoryTypes = categories.map((item) => item.name).filter(Boolean);
+    const dynamicTypes = categoryTypes.length
+      ? categoryTypes
+      : [...new Set(products.map((item) => item.type).filter(Boolean))];
+    return dynamicTypes.length > 0 ? dynamicTypes : FALLBACK_TEA_TYPES;
+  }, [categories, products]);
+
+  let processedProducts = [...products];
+
   if (sortBy === "Giá: Thấp đến cao") {
-    processedProducts.sort(
-      (a, b) =>
-        parseFloat(a.price.replace("$", "")) -
-        parseFloat(b.price.replace("$", "")),
-    );
+    processedProducts.sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
   } else if (sortBy === "Giá: Cao đến thấp") {
-    processedProducts.sort(
-      (a, b) =>
-        parseFloat(b.price.replace("$", "")) -
-        parseFloat(a.price.replace("$", "")),
-    );
+    processedProducts.sort((a, b) => Number(b.price || 0) - Number(a.price || 0));
+  } else if (sortBy === "Mới nhất") {
+    processedProducts.sort((a, b) => String(b.id).localeCompare(String(a.id)));
   }
 
-  // 3. Paginate
-  const totalPages = Math.ceil(processedProducts.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(processedProducts.length / ITEMS_PER_PAGE) || 1;
   const displayedProducts = processedProducts.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE,
   );
 
   const activeFilters = [...selectedTypes];
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const categoryKey = params.get("categoryKey");
+    const categoryFromQuery = params.get("category");
+
+    if (!categoryFromQuery && !categoryKey) {
+      return;
+    }
+
+    let matchedType = null;
+
+    if (categoryKey) {
+      matchedType = teaTypes.find((type) => matchesCategoryKey(type, categoryKey));
+    }
+
+    if (!matchedType && categoryFromQuery) {
+      const normalizedQuery = normalizeText(categoryFromQuery);
+      matchedType = teaTypes.find(
+        (type) => normalizeText(type) === normalizedQuery,
+      );
+    }
+
+    if (!matchedType) {
+      return;
+    }
+
+    if (selectedTypes.length === 1 && selectedTypes[0] === matchedType) {
+      return;
+    }
+
+    setSelectedTypes([matchedType]);
+    setCurrentPage(1);
+  }, [location.search, teaTypes, selectedTypes]);
 
   return (
     <div className="flex flex-col items-center w-full min-h-screen pb-20 font-display bg-background-light text-[#0d1b10]">
@@ -130,7 +231,7 @@ const Shop = () => {
             to="/"
             className="text-gray-500 hover:text-primary transition-colors"
           >
-            Trang chủ
+            Trang chu
           </Link>
           <span className="material-symbols-outlined !text-[14px] text-gray-400">
             chevron_right
@@ -158,7 +259,7 @@ const Shop = () => {
               Loại trà
             </h4>
             <div className="space-y-3">
-              {["Trà Tân Cương", "Trà xanh", "Trà đen", "Trà Oolong", "Trà thảo mộc"].map((type) => (
+              {teaTypes.map((type) => (
                 <label
                   key={type}
                   className="flex items-center gap-3 cursor-pointer group"
@@ -178,65 +279,93 @@ const Shop = () => {
               ))}
             </div>
           </div>
-
         </aside>
 
         <div className="flex-1 w-full">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-            <div className="flex flex-wrap gap-2 items-center">
-              {activeFilters.map((filter) => (
-                <div
-                  key={filter}
-                  className="flex h-8 items-center justify-center gap-x-2 rounded-full border border-primary/30 bg-primary/10 pl-3 pr-2"
-                >
-                  <p className="text-[#0d1b10] text-xs font-bold">{filter}</p>
-                  <button
-                    onClick={() => {
-                      if (selectedTypes.includes(filter))
-                        toggleFilter(filter, selectedTypes, setSelectedTypes);
-                    }}
-                    className="hover:text-red-500 flex items-center"
+          <div className="flex flex-col gap-4 mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex flex-wrap gap-2 items-center">
+                {activeFilters.map((filter) => (
+                  <div
+                    key={filter}
+                    className="flex h-8 items-center justify-center gap-x-2 rounded-full border border-primary/30 bg-primary/10 pl-3 pr-2"
                   >
-                    <span className="material-symbols-outlined !text-[16px]">
-                      close
-                    </span>
+                    <p className="text-[#0d1b10] text-xs font-bold">{filter}</p>
+                    <button
+                      onClick={() =>
+                        toggleFilter(filter, selectedTypes, setSelectedTypes)
+                      }
+                      className="hover:text-red-500 flex items-center"
+                    >
+                      <span className="material-symbols-outlined !text-[16px]">
+                        close
+                      </span>
+                    </button>
+                  </div>
+                ))}
+
+                {activeFilters.length > 0 && (
+                  <button
+                    onClick={handleReset}
+                    className="text-xs font-bold underline text-gray-500 hover:text-primary ml-1"
+                  >
+                    Xóa tất cả
                   </button>
-                </div>
-              ))}
+                )}
+              </div>
 
-              {activeFilters.length > 0 && (
-                <button
-                  onClick={handleReset}
-                  className="text-xs font-bold underline text-gray-500 hover:text-primary ml-1"
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500 font-medium">Sắp xếp:</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => {
+                    setSortBy(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="bg-transparent border-none text-sm font-bold focus:ring-0 cursor-pointer text-[#0d1b10] py-0 pl-0"
                 >
-                  Xóa tất cả
-                </button>
-              )}
+                  <option>Nổi bật</option>
+                  <option>Mới nhất</option>
+                  <option>Giá: Thấp đến cao</option>
+                  <option>Giá: Cao đến thấp</option>
+                </select>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500 font-medium">
-                Sắp xếp theo:
-              </span>
-              <select
-                value={sortBy}
-                onChange={(e) => {
-                  setSortBy(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="bg-transparent border-none text-sm font-bold focus:ring-0 cursor-pointer text-[#0d1b10] py-0 pl-0"
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setCurrentPage(1);
+                setAppliedKeyword(searchInput);
+              }}
+              className="flex gap-2"
+            >
+              <input
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Tìm theo tên sản phẩm..."
+                className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+              <button
+                type="submit"
+                className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-[#0d1b10] hover:bg-primary/90"
               >
-                <option>Nổi bật</option>
-                <option>Mới nhất</option>
-                <option>Giá: Thấp đến cao</option>
-                <option>Giá: Cao đến thấp</option>
-              </select>
-            </div>
+                Tìm
+              </button>
+            </form>
           </div>
 
-          <ProductGrid displayedProducts={displayedProducts} />
+          {loading ? (
+            <div className="py-20 text-center text-gray-500 font-bold">Đang tải sản phẩm...</div>
+          ) : error ? (
+            <div className="py-20 text-center text-red-500 font-bold">{error}</div>
+          ) : (
+            <ProductGrid displayedProducts={displayedProducts} />
+          )}
 
-          {totalPages > 1 && <Pagination totalPages={totalPages}></Pagination>}
+          {!loading && !error && totalPages > 1 && (
+            <Pagination totalPages={totalPages} onPageChange={setCurrentPage}></Pagination>
+          )}
         </div>
       </div>
     </div>

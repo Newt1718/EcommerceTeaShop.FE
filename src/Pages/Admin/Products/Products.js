@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { getProductsApi } from '../../../services/productApi';
 
 const Products = () => {
   const [activeTab, setActiveTab] = useState('Tất cả sản phẩm');
@@ -7,18 +8,55 @@ const Products = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [sortOption, setSortOption] = useState('Mới nhất');
+  const [allProducts, setAllProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   
   const itemsPerPage = 5;
 
-  const allProducts = [
-    { id: 'TEA-GRN-JAS-001', name: 'Imperial Jasmine Pearl', category: 'Trà xanh', price: '$24.50', stock: 128, status: 'Còn hàng', statusColor: 'bg-green-100 text-green-800 border-green-200' },
-    { id: 'TEA-BLK-EGY-002', name: 'Classic Earl Grey', category: 'Trà đen', price: '$18.00', stock: 12, status: 'Sắp hết', statusColor: 'bg-orange-100 text-orange-800 border-orange-200' },
-    { id: 'TEA-OOL-TGY-003', name: 'Premium Tie Guan Yin', category: 'Trà ô long', price: '$32.00', stock: 45, status: 'Còn hàng', statusColor: 'bg-green-100 text-green-800 border-green-200' },
-    { id: 'TEA-MAT-CER-004', name: 'Uji Matcha Ceremony Grade', category: 'Bột/Matcha', price: '$45.00', stock: 0, status: 'Hết hàng', statusColor: 'bg-red-100 text-red-800 border-red-200' },
-    { id: 'TEA-HRB-CHM-005', name: 'Wild Chamomile Blend', category: 'Trà thảo mộc', price: '$16.00', stock: 210, status: 'Còn hàng', statusColor: 'bg-green-100 text-green-800 border-green-200' },
-    { id: 'TEA-WHT-SIL-006', name: 'Silver Needle White Tea', category: 'Trà trắng', price: '$38.00', stock: 8, status: 'Sắp hết', statusColor: 'bg-orange-100 text-orange-800 border-orange-200' },
-    { id: 'TEA-DRK-PUH-007', name: 'Aged Pu-erh Cake (2015)', category: 'Trà hậu lên men', price: '$85.00', stock: 32, status: 'Còn hàng', statusColor: 'bg-green-100 text-green-800 border-green-200' }
-  ];
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        const response = await getProductsApi({ pageNumber: 1, pageSize: 100 });
+        const mapped = (response?.data?.items || []).map((item) => {
+          const stock = Number(item.stockQuantity || 0);
+          const isActive = Boolean(item.isActive);
+
+          let status = 'Còn hàng';
+          let statusColor = 'bg-green-100 text-green-800 border-green-200';
+
+          if (!isActive || stock === 0) {
+            status = 'Hết hàng';
+            statusColor = 'bg-red-100 text-red-800 border-red-200';
+          } else if (stock <= 10) {
+            status = 'Sắp hết';
+            statusColor = 'bg-orange-100 text-orange-800 border-orange-200';
+          }
+
+          return {
+            id: item.productId,
+            name: item.name,
+            category: item.categoryName || 'Khác',
+            price: `$${Number(item.price || 0).toFixed(2)}`,
+            priceValue: Number(item.price || 0),
+            stock,
+            status,
+            statusColor,
+          };
+        });
+
+        setAllProducts(mapped);
+      } catch (apiError) {
+        setError(apiError?.message || 'Không thể tải danh sách sản phẩm.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProducts();
+  }, []);
 
   const filteredProducts = useMemo(() => {
     let result = allProducts.filter(product => {
@@ -35,9 +73,9 @@ const Products = () => {
     });
 
     if (sortOption === 'Giá cao nhất') {
-      result.sort((a, b) => parseFloat(b.price.replace('$', '')) - parseFloat(a.price.replace('$', '')));
+      result.sort((a, b) => b.priceValue - a.priceValue);
     } else if (sortOption === 'Giá thấp nhất') {
-      result.sort((a, b) => parseFloat(a.price.replace('$', '')) - parseFloat(b.price.replace('$', '')));
+      result.sort((a, b) => a.priceValue - b.priceValue);
     } else if (sortOption === 'Tồn kho thấp') {
       result.sort((a, b) => a.stock - b.stock); 
     } else {
@@ -74,21 +112,33 @@ const Products = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-1">
             <p className="text-slate-500 text-sm font-medium">Tổng sản phẩm</p>
-            <h3 className="text-2xl font-bold text-slate-900 mt-2">124</h3>
+            <h3 className="text-2xl font-bold text-slate-900 mt-2">{allProducts.length}</h3>
           </div>
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-1">
             <p className="text-slate-500 text-sm font-medium">Cảnh báo sắp hết</p>
-            <h3 className="text-2xl font-bold text-orange-600 mt-2">12</h3>
+            <h3 className="text-2xl font-bold text-orange-600 mt-2">{allProducts.filter((item) => item.status === 'Sắp hết').length}</h3>
           </div>
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-1">
             <p className="text-slate-500 text-sm font-medium">Hết hàng</p>
-            <h3 className="text-2xl font-bold text-red-600 mt-2">3</h3>
+            <h3 className="text-2xl font-bold text-red-600 mt-2">{allProducts.filter((item) => item.status === 'Hết hàng').length}</h3>
           </div>
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-1">
             <p className="text-slate-500 text-sm font-medium">Danh mục đang hoạt động</p>
-            <h3 className="text-2xl font-bold text-slate-900 mt-2">8</h3>
+            <h3 className="text-2xl font-bold text-slate-900 mt-2">{new Set(allProducts.map((item) => item.category)).size}</h3>
           </div>
         </div>
+
+        {loading && (
+          <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm font-medium text-slate-500">
+            Đang tải danh sách sản phẩm...
+          </div>
+        )}
+
+        {!loading && error && (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm font-medium text-red-600">
+            {error}
+          </div>
+        )}
 
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 w-full md:w-auto scrollbar-hide">

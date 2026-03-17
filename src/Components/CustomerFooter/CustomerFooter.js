@@ -15,7 +15,7 @@ const CustomerFooter = () => {
               <div className="bg-primary rounded-sm h-full w-full"></div>
             </div>
             <h2 className="text-xl font-black leading-tight tracking-tight group-hover:text-primary transition-colors">
-              Tea Soul
+              Tea Vault
             </h2>
           </Link>
           <p className="text-sm text-gray-500 mt-2 pr-4">
@@ -162,7 +162,7 @@ const CustomerFooter = () => {
               <span className="material-symbols-outlined text-primary text-[20px]">
                 mail
               </span>{" "}
-              hello@teasoul.com
+              hello@teavault.com
             </li>
             <li className="flex items-center gap-3">
               <span className="material-symbols-outlined text-primary text-[20px]">
@@ -176,7 +176,7 @@ const CustomerFooter = () => {
 
       <div className="max-w-[1440px] mx-auto pt-8 border-t border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4">
         <p className="text-xs text-gray-400 font-medium">
-          © 2026 Tea Soul. Đã đăng ký bản quyền.
+          © 2026 Tea Vault. Đã đăng ký bản quyền.
         </p>
         <div className="flex gap-6 text-xs text-gray-400 font-medium">
           <span className="hover:text-primary transition-colors cursor-pointer">

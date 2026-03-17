@@ -1,33 +1,108 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { toast } from "react-toastify";
+import { addAddressApi, getAddressesApi } from "../../services/addressApi";
 
 const Checkout = () => {
   const { isAuthenticated, user } = useSelector((state) => state.auth || { isAuthenticated: false, user: null });
   const [showAddressModal, setShowAddressModal] = useState(false);
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
+  const [savingAddress, setSavingAddress] = useState(false);
+  const [savedAddresses, setSavedAddresses] = useState([]);
+  const [selectedAddress, setSelectedAddress] = useState(null);
+  const [addressForm, setAddressForm] = useState({
+    fullName: user?.name || "",
+    phone: "",
+    addressLine: "",
+    city: "",
+    district: "",
+    ward: "",
+    isDefault: false,
+  });
 
-  const savedAddresses = [
-    {
-      id: 1,
-      label: "Giao đến campus",
-      details: "Khuôn viên Đại học FPT, Khu công nghệ cao Hòa Lạc, Thạch Thất, Hà Nội, Việt Nam",
-      isDefault: true,
-    },
-    {
-      id: 2,
-      label: "Nhà",
-      details: "123 Tea Garden Lane, Quận 1, TP. Hồ Chí Minh, Việt Nam",
-      isDefault: false,
-    },
-    {
-      id: 3,
-      label: "Công ty",
-      details: "Keangnam Landmark 72, Phạm Hùng, Nam Từ Liêm, Hà Nội, Việt Nam",
-      isDefault: false,
+  const selectedAddressLabel = useMemo(() => {
+    if (!selectedAddress) {
+      return "Chưa chọn địa chỉ";
     }
-  ];
+    return `${selectedAddress.ward}, ${selectedAddress.district}`;
+  }, [selectedAddress]);
 
-  const [selectedAddress, setSelectedAddress] = useState(savedAddresses[0]);
+  const selectedAddressDetails = useMemo(() => {
+    if (!selectedAddress) {
+      return "";
+    }
+    return `${selectedAddress.addressLine}, ${selectedAddress.ward}, ${selectedAddress.district}, ${selectedAddress.city}`;
+  }, [selectedAddress]);
+
+  const fetchAddresses = async () => {
+    try {
+      setLoadingAddresses(true);
+      const response = await getAddressesApi();
+      const list = Array.isArray(response?.data) ? response.data : [];
+      setSavedAddresses(list);
+
+      const defaultAddress = list.find((item) => item.isDefault) || list[0] || null;
+      setSelectedAddress((prev) => prev || defaultAddress);
+    } catch (error) {
+      toast.error(error?.message || "Không tải được địa chỉ giao hàng.");
+    } finally {
+      setLoadingAddresses(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchAddresses();
+    }
+  }, [isAuthenticated]);
+
+  const handleAddressInputChange = (event) => {
+    const { name, value, type, checked } = event.target;
+    setAddressForm((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  };
+
+  const handleAddAddress = async (event) => {
+    event.preventDefault();
+
+    if (!addressForm.fullName || !addressForm.phone || !addressForm.addressLine || !addressForm.city || !addressForm.district || !addressForm.ward) {
+      toast.error("Vui lòng nhập đầy đủ thông tin địa chỉ.");
+      return;
+    }
+
+    try {
+      setSavingAddress(true);
+      const response = await addAddressApi({
+        fullName: addressForm.fullName,
+        phone: addressForm.phone,
+        addressLine: addressForm.addressLine,
+        city: addressForm.city,
+        district: addressForm.district,
+        ward: addressForm.ward,
+        isDefault: addressForm.isDefault,
+      });
+      toast.success(response?.message || "Thêm địa chỉ thành công");
+
+      setAddressForm({
+        fullName: user?.name || "",
+        phone: "",
+        addressLine: "",
+        city: "",
+        district: "",
+        ward: "",
+        isDefault: false,
+      });
+
+      await fetchAddresses();
+    } catch (error) {
+      toast.error(error?.message || "Không thể thêm địa chỉ mới.");
+    } finally {
+      setSavingAddress(false);
+    }
+  };
 
   const orderItems = [
     {
@@ -61,7 +136,7 @@ const Checkout = () => {
               </button>
             </div>
             
-            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+            <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2">
               {savedAddresses.map((addr) => (
                 <div 
                   key={addr.id} 
@@ -69,28 +144,47 @@ const Checkout = () => {
                     setSelectedAddress(addr);
                     setShowAddressModal(false);
                   }}
-                  className={`p-5 rounded-2xl border-2 cursor-pointer transition-all ${selectedAddress.id === addr.id ? 'border-primary bg-primary/5' : 'border-gray-100 bg-white hover:border-primary/30'}`}
+                  className={`p-5 rounded-2xl border-2 cursor-pointer transition-all ${selectedAddress?.id === addr.id ? 'border-primary bg-primary/5' : 'border-gray-100 bg-white hover:border-primary/30'}`}
                 >
                   <div className="flex items-start gap-4">
-                    <div className={`mt-1 h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 ${selectedAddress.id === addr.id ? 'border-primary' : 'border-gray-300'}`}>
-                      {selectedAddress.id === addr.id && <div className="h-2.5 w-2.5 rounded-full bg-primary"></div>}
+                    <div className={`mt-1 h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 ${selectedAddress?.id === addr.id ? 'border-primary' : 'border-gray-300'}`}>
+                      {selectedAddress?.id === addr.id && <div className="h-2.5 w-2.5 rounded-full bg-primary"></div>}
                     </div>
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="font-bold text-[#0d1b10]">{addr.label}</span>
+                        <span className="font-bold text-[#0d1b10]">{addr.fullName}</span>
                         {addr.isDefault && <span className="text-[10px] font-black uppercase tracking-widest text-primary bg-primary/10 px-2 py-0.5 rounded-md">Mặc định</span>}
                       </div>
-                      <p className="text-sm text-gray-600 leading-relaxed">{addr.details}</p>
-                      <p className="text-sm font-medium text-[#0d1b10] mt-2">{user?.name || "Khách hàng"} • +84 987 654 321</p>
+                      <p className="text-sm text-gray-600 leading-relaxed">{addr.addressLine}, {addr.ward}, {addr.district}, {addr.city}</p>
+                      <p className="text-sm font-medium text-[#0d1b10] mt-2">{addr.fullName} • {addr.phone}</p>
                     </div>
                   </div>
                 </div>
               ))}
+              {loadingAddresses && <p className="text-sm text-gray-500">Đang tải địa chỉ...</p>}
+              {!loadingAddresses && savedAddresses.length === 0 && (
+                <p className="text-sm text-gray-500">Bạn chưa có địa chỉ nào.</p>
+              )}
             </div>
             
-            <button onClick={() => setShowAddressModal(false)} className="w-full mt-6 py-4 rounded-xl bg-surface-light text-[#0d1b10] font-bold hover:bg-gray-200 transition-colors">
-              Thêm địa chỉ mới
-            </button>
+            <form className="mt-6 space-y-3 border-t border-gray-100 pt-6" onSubmit={handleAddAddress}>
+              <h4 className="text-sm font-bold text-[#0d1b10]">Thêm địa chỉ mới</h4>
+              <input name="fullName" placeholder="Họ và tên" value={addressForm.fullName} onChange={handleAddressInputChange} className="w-full rounded-xl border border-gray-200 bg-surface-light py-3 px-4 text-[#0d1b10]" />
+              <input name="phone" placeholder="Số điện thoại" value={addressForm.phone} onChange={handleAddressInputChange} className="w-full rounded-xl border border-gray-200 bg-surface-light py-3 px-4 text-[#0d1b10]" />
+              <input name="addressLine" placeholder="Địa chỉ" value={addressForm.addressLine} onChange={handleAddressInputChange} className="w-full rounded-xl border border-gray-200 bg-surface-light py-3 px-4 text-[#0d1b10]" />
+              <div className="grid grid-cols-3 gap-2">
+                <input name="ward" placeholder="Phường/Xã" value={addressForm.ward} onChange={handleAddressInputChange} className="w-full rounded-xl border border-gray-200 bg-surface-light py-3 px-3 text-[#0d1b10]" />
+                <input name="district" placeholder="Quận/Huyện" value={addressForm.district} onChange={handleAddressInputChange} className="w-full rounded-xl border border-gray-200 bg-surface-light py-3 px-3 text-[#0d1b10]" />
+                <input name="city" placeholder="Tỉnh/TP" value={addressForm.city} onChange={handleAddressInputChange} className="w-full rounded-xl border border-gray-200 bg-surface-light py-3 px-3 text-[#0d1b10]" />
+              </div>
+              <label className="flex items-center gap-2 text-sm text-gray-600">
+                <input name="isDefault" type="checkbox" checked={addressForm.isDefault} onChange={handleAddressInputChange} className="rounded border-gray-300 text-primary focus:ring-primary" />
+                Đặt làm mặc định
+              </label>
+              <button type="submit" className="w-full py-3 rounded-xl bg-primary text-[#0d1b10] font-bold hover:bg-primary/90 transition-colors disabled:opacity-70" disabled={savingAddress}>
+                {savingAddress ? "Đang lưu..." : "Lưu địa chỉ"}
+              </button>
+            </form>
           </div>
         </div>
       )}
@@ -180,7 +274,7 @@ const Checkout = () => {
                 <div className="flex justify-between items-start mb-2">
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-primary text-xl">location_on</span>
-                    <span className="font-bold text-[#0d1b10] text-lg">Giao đến: {selectedAddress.label}</span>
+                    <span className="font-bold text-[#0d1b10] text-lg">Giao đến: {selectedAddressLabel}</span>
                   </div>
                   <button 
                     onClick={() => setShowAddressModal(true)}
@@ -190,9 +284,9 @@ const Checkout = () => {
                   </button>
                 </div>
                 <div className="ml-7">
-                  <p className="font-bold text-[#0d1b10] mb-1">{user?.name || "Khách hàng"} <span className="text-gray-400 font-normal mx-2">|</span> +84 987 654 321</p>
+                  <p className="font-bold text-[#0d1b10] mb-1">{selectedAddress?.fullName || user?.name || "Khách hàng"} <span className="text-gray-400 font-normal mx-2">|</span> {selectedAddress?.phone || "Chưa có số điện thoại"}</p>
                   <p className="text-sm text-gray-600 leading-relaxed max-w-md">
-                    {selectedAddress.details}
+                    {loadingAddresses ? "Đang tải địa chỉ..." : selectedAddressDetails || "Bạn chưa có địa chỉ, bấm Đổi để thêm mới."}
                   </p>
                 </div>
               </div>
