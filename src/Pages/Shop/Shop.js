@@ -4,6 +4,7 @@ import ProductGrid from "./ProductGrid";
 import Pagination from "../../Components/Pagination/Pagination";
 import {
   getCategoriesApi,
+  getProductDetailApi,
   getProductsApi,
   getProductsByCategoryApi,
 } from "../../services/productApi";
@@ -20,6 +21,11 @@ const ITEMS_PER_PAGE = 6;
 
 function mapProduct(item) {
   const firstImage = Array.isArray(item.images) ? item.images[0] : null;
+  const derivedIsActive =
+    Boolean(item.isActive) ||
+    Number(item.price || 0) > 0 ||
+    Number(item.stockQuantity || 0) > 0;
+
   return {
     id: item.productId,
     name: item.name,
@@ -27,16 +33,65 @@ function mapProduct(item) {
     origin: item.categoryName || "Khác",
     rating: "—",
     price: Number(item.price || 0),
-    priceLabel: `$${Number(item.price || 0).toFixed(2)}`,
+    priceLabel: `${Number(item.price || 0).toLocaleString("vi-VN")}đ`,
     size: `Tồn kho ${Number(item.stockQuantity || 0)}`,
     desc: item.description || "Chưa có mô tả.",
     badge: item.isActive ? "Sản phẩm" : "Sắp ra mắt",
-    badgeColor: item.isActive
+    badgeColor: derivedIsActive
       ? "bg-emerald-200 text-emerald-900"
       : "bg-gray-900/80 text-white",
-    comingSoon: !item.isActive,
+    comingSoon: !derivedIsActive,
     img: firstImage || null,
   };
+}
+
+async function enrichProductsWithVariantData(items) {
+  const safeItems = Array.isArray(items) ? items : [];
+
+  const enriched = await Promise.all(
+    safeItems.map(async (item) => {
+      const hasBasePrice = Number(item?.price || 0) > 0;
+      const hasStock = Number(item?.stockQuantity || 0) > 0;
+
+      if (hasBasePrice || hasStock) {
+        return item;
+      }
+
+      try {
+        const response = await getProductDetailApi(item.productId);
+        const variants = Array.isArray(response?.data?.variants)
+          ? response.data.variants
+          : [];
+
+        if (variants.length === 0) {
+          return item;
+        }
+
+        const prices = variants
+          .map((variant) => Number(variant?.price || 0))
+          .filter((price) => price > 0);
+
+        const stocks = variants.map((variant) => Number(variant?.stock || 0));
+
+        return {
+          ...item,
+          price: prices.length > 0 ? Math.min(...prices) : Number(item?.price || 0),
+          stockQuantity:
+            stocks.length > 0
+              ? stocks.reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0)
+              : Number(item?.stockQuantity || 0),
+          isActive:
+            Boolean(item?.isActive) ||
+            prices.length > 0 ||
+            stocks.some((stock) => Number(stock) > 0),
+        };
+      } catch (error) {
+        return item;
+      }
+    }),
+  );
+
+  return enriched;
 }
 
 function normalizeText(value) {
@@ -151,7 +206,8 @@ const Shop = () => {
           });
         }
 
-        setProducts(sourceItems.map(mapProduct));
+        const enrichedItems = await enrichProductsWithVariantData(sourceItems);
+        setProducts(enrichedItems.map(mapProduct));
       } catch (apiError) {
         setProducts([]);
         setError(apiError?.message || "Không tải được danh sách sản phẩm.");

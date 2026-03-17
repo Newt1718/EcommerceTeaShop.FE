@@ -19,7 +19,15 @@ async function parseResponse(response) {
 }
 
 async function requestWithAuth(path, retry = true) {
-  const { accessToken } = getStoredTokens();
+  const { accessToken, refreshToken } = getStoredTokens();
+
+  const requestAnonymous = () => fetch(`${API_BASE_URL}${path}`);
+
+  // If there is no access token, call as anonymous directly.
+  if (!accessToken) {
+    return requestAnonymous();
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     headers: {
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
@@ -27,6 +35,11 @@ async function requestWithAuth(path, retry = true) {
   });
 
   if (response.status === 401 && retry) {
+    // Do not try refresh flow when refresh token is absent.
+    if (!refreshToken) {
+      return response;
+    }
+
     console.log(`[ProductApi] 401 at ${path}. Trying refresh...`);
     try {
       const refreshed = await refreshTokenManual();
@@ -37,6 +50,12 @@ async function requestWithAuth(path, retry = true) {
             : {}),
         },
       });
+
+      if (retried.status === 401) {
+        // Endpoint may require auth and refreshed token is still invalid.
+        return retried;
+      }
+
       return retried;
     } catch (error) {
       console.log("[ProductApi] Refresh failed while requesting product/category API.");

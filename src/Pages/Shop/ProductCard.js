@@ -7,7 +7,7 @@ const ProductCard = ({ item }) => {
   const ratingLabel = isComingSoon ? "…" : item.rating;
   const priceLabel = isComingSoon
     ? "Sắp ra mắt"
-    : item.priceLabel || `$${Number(item.price || 0).toFixed(2)}`;
+    : item.priceLabel || `${Number(item.price || 0).toLocaleString("vi-VN")}đ`;
   const sizeLabel = isComingSoon ? "Đang cập nhật" : item.size;
 
   return (

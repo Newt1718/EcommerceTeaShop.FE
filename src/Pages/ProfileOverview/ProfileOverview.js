@@ -1,9 +1,42 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { toast } from 'react-toastify';
 import { changePasswordApi } from '../../services/authApi';
 import { addAddressApi, deleteAddressApi, getAddressesApi } from '../../services/addressApi';
+import { getMyOrdersApi, getOrderByCodeApi } from '../../services/orderApi';
+import { getTransactionsApi } from '../../services/transactionApi';
+
+const formatVnd = (value) => `${Number(value || 0).toLocaleString('vi-VN')}đ`;
+
+const formatDateTime = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('vi-VN');
+};
+
+const mapOrderStatus = (status) => {
+  const normalized = String(status || '').toLowerCase();
+  if (normalized === 'paid') {
+    return { label: 'Đã thanh toán', color: 'text-primary' };
+  }
+  if (normalized === 'pending') {
+    return { label: 'Đang chờ', color: 'text-amber-500' };
+  }
+  return { label: status || 'Không xác định', color: 'text-gray-500' };
+};
+
+const mapTransactionStatus = (status) => {
+  const normalized = String(status || '').toLowerCase();
+  if (normalized === 'success') {
+    return { label: 'Thanh toán thành công', color: 'text-primary' };
+  }
+  if (normalized === 'pending') {
+    return { label: 'Đang xử lý giao dịch', color: 'text-amber-500' };
+  }
+  return { label: status || 'Chưa thanh toán', color: 'text-gray-500' };
+};
 
 const ProfileOverview = () => {
   const { isAuthenticated, user, accessToken } = useSelector((state) => state.auth || { isAuthenticated: false, user: null, accessToken: null });
@@ -15,7 +48,11 @@ const ProfileOverview = () => {
   const [loadingAddresses, setLoadingAddresses] = useState(false);
   const [savingAddress, setSavingAddress] = useState(false);
   const [deletingAddressId, setDeletingAddressId] = useState(null);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [addresses, setAddresses] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [transactions, setTransactions] = useState([]);
   const [addressForm, setAddressForm] = useState({
     fullName: user?.name || '',
     phone: '',
@@ -45,11 +82,61 @@ const ProfileOverview = () => {
     }
   };
 
+  const fetchOrders = async () => {
+    try {
+      setLoadingOrders(true);
+      const response = await getMyOrdersApi();
+      const list = Array.isArray(response?.data) ? response.data : [];
+      setOrders(list);
+    } catch (error) {
+      toast.error(error?.message || 'Không tải được danh sách đơn hàng.');
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
+  const fetchTransactions = async () => {
+    try {
+      setLoadingTransactions(true);
+      const response = await getTransactionsApi();
+      const list = Array.isArray(response?.data) ? response.data : [];
+      setTransactions(list);
+    } catch (error) {
+      toast.error(error?.message || 'Không tải được lịch sử giao dịch.');
+    } finally {
+      setLoadingTransactions(false);
+    }
+  };
+
   useEffect(() => {
     if (isAuthenticated) {
       fetchAddresses();
+      fetchOrders();
+      fetchTransactions();
     }
   }, [isAuthenticated]);
+
+  const transactionsByOrderId = useMemo(() => {
+    const map = new Map();
+    transactions.forEach((transaction) => {
+      if (transaction?.orderId) {
+        map.set(transaction.orderId, transaction);
+      }
+    });
+    return map;
+  }, [transactions]);
+
+  const recentOrders = orders.slice(0, 2);
+
+  const handleViewOrder = async (orderCode) => {
+    try {
+      const response = await getOrderByCodeApi(orderCode);
+      const detail = response?.data;
+      toast.success(`Đơn #${detail?.orderCode} - ${detail?.status || 'Pending'}`);
+    } catch (error) {
+      toast.error(error?.message || 'Không tải được chi tiết đơn hàng.');
+    }
+  };
 
   const handlePasswordInputChange = (event) => {
     const { name, value } = event.target;
@@ -341,36 +428,43 @@ const ProfileOverview = () => {
                 <button onClick={() => setActiveView('orders')} className="text-xs font-bold uppercase tracking-widest text-primary hover:underline transition-all">Xem lịch sử</button>
               </div>
               <div className="flex flex-col">
-                <div className="flex items-center justify-between py-5 border-b border-gray-100">
-                  <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-xl bg-surface-light flex items-center justify-center text-[#0d1b10]">
-                      <span className="material-symbols-outlined text-2xl">shopping_bag</span>
+                {loadingOrders && (
+                  <p className="text-sm text-gray-500">Đang tải đơn hàng...</p>
+                )}
+                {!loadingOrders && recentOrders.length === 0 && (
+                  <p className="text-sm text-gray-500">Bạn chưa có đơn hàng nào.</p>
+                )}
+                {!loadingOrders && recentOrders.map((order, index) => {
+                  const statusMeta = mapOrderStatus(order?.status);
+                  const transaction = transactionsByOrderId.get(order?.id);
+                  const txStatusMeta = mapTransactionStatus(transaction?.status);
+                  return (
+                    <div key={order?.id || index} className={`flex items-center justify-between py-5 ${index === 0 ? 'border-b border-gray-100' : ''}`}>
+                      <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-xl bg-surface-light flex items-center justify-center text-[#0d1b10]">
+                          <span className="material-symbols-outlined text-2xl">shopping_bag</span>
+                        </div>
+                        <div>
+                          <p className="text-base font-bold text-[#0d1b10]">#{order?.orderCode}</p>
+                          <p className="text-xs text-gray-500 font-medium mt-0.5">{formatDateTime(order?.orderDate)}</p>
+                          {transaction?.transactionCode && (
+                            <p className="text-xs text-gray-400 mt-0.5">Mã GD: {transaction.transactionCode}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-base font-bold text-[#0d1b10]">{formatVnd(order?.totalPrice)}</p>
+                        <span className={`text-[10px] font-black uppercase tracking-widest mt-1 block ${statusMeta.color}`}>{statusMeta.label}</span>
+                        {transaction && (
+                          <span className={`text-[10px] font-black uppercase tracking-widest mt-1 block ${txStatusMeta.color}`}>{txStatusMeta.label}</span>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-base font-bold text-[#0d1b10]">#TEA-8829</p>
-                      <p className="text-xs text-gray-500 font-medium mt-0.5">Feb 24, 2026</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-base font-bold text-[#0d1b10]">$42.00</p>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-primary mt-1 block">Đang giao</span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between py-5">
-                  <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-xl bg-surface-light flex items-center justify-center text-[#0d1b10]">
-                      <span className="material-symbols-outlined text-2xl">shopping_bag</span>
-                    </div>
-                    <div>
-                      <p className="text-base font-bold text-[#0d1b10]">#TEA-8710</p>
-                      <p className="text-xs text-gray-500 font-medium mt-0.5">Feb 15, 2026</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-base font-bold text-[#0d1b10]">$65.50</p>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-1 block">Đã giao</span>
-                  </div>
-                </div>
+                  );
+                })}
+                {loadingTransactions && !loadingOrders && (
+                  <p className="text-xs text-gray-400 mt-3">Đang tải thông tin thanh toán...</p>
+                )}
               </div>
             </div>
           </>
@@ -382,31 +476,47 @@ const ProfileOverview = () => {
             <p className="text-sm text-gray-500 mb-8">Theo dõi và quản lý các lần mua trước đây.</p>
             
             <div className="space-y-4">
-              {[
-                { id: "#TEA-8829", date: "Feb 24, 2026", total: "$42.00", items: "Premium Jasmine Pearls", status: "Đang giao", statusColor: "text-primary" },
-                { id: "#TEA-8710", date: "Feb 15, 2026", total: "$65.50", items: "Matcha Starter Kit", status: "Đã giao", statusColor: "text-gray-500" },
-                { id: "#TEA-8455", date: "Jan 10, 2026", total: "$24.00", items: "Oolong Tasting Box", status: "Đã giao", statusColor: "text-gray-500" }
-              ].map((order, idx) => (
-                <div key={idx} className="flex flex-col md:flex-row md:items-center justify-between p-5 rounded-2xl border border-gray-100 hover:border-primary/30 transition-colors gap-4">
+              {loadingOrders && (
+                <p className="text-sm text-gray-500">Đang tải đơn hàng...</p>
+              )}
+              {!loadingOrders && orders.length === 0 && (
+                <p className="text-sm text-gray-500">Bạn chưa có đơn hàng nào.</p>
+              )}
+              {!loadingOrders && orders.map((order) => {
+                const statusMeta = mapOrderStatus(order?.status);
+                const transaction = transactionsByOrderId.get(order?.id);
+                const txStatusMeta = mapTransactionStatus(transaction?.status);
+                const itemSummary = Array.isArray(order?.items) && order.items.length > 0
+                  ? `${order.items[0].productName} (${order.items[0].gram}g)`
+                  : 'Không có sản phẩm';
+
+                return (
+                <div key={order?.id} className="flex flex-col md:flex-row md:items-center justify-between p-5 rounded-2xl border border-gray-100 hover:border-primary/30 transition-colors gap-4">
                   <div className="flex items-start gap-4">
                     <div className="h-12 w-12 rounded-xl bg-surface-light flex items-center justify-center text-[#0d1b10] shrink-0">
                       <span className="material-symbols-outlined text-2xl">local_shipping</span>
                     </div>
                     <div>
                       <div className="flex items-center gap-3">
-                        <p className="text-base font-black text-[#0d1b10]">{order.id}</p>
-                        <span className={`text-[10px] font-black uppercase tracking-widest ${order.statusColor}`}>{order.status}</span>
+                        <p className="text-base font-black text-[#0d1b10]">#{order?.orderCode}</p>
+                        <span className={`text-[10px] font-black uppercase tracking-widest ${statusMeta.color}`}>{statusMeta.label}</span>
+                        {transaction && (
+                          <span className={`text-[10px] font-black uppercase tracking-widest ${txStatusMeta.color}`}>{txStatusMeta.label}</span>
+                        )}
                       </div>
-                      <p className="text-sm font-medium text-gray-600 mt-1">{order.items}</p>
-                      <p className="text-xs text-gray-400 mt-1">{order.date}</p>
+                      <p className="text-sm font-medium text-gray-600 mt-1">{itemSummary}</p>
+                      <p className="text-xs text-gray-400 mt-1">{formatDateTime(order?.orderDate)}</p>
+                      {transaction?.transactionCode && (
+                        <p className="text-xs text-gray-400 mt-1">Mã giao dịch: {transaction.transactionCode}</p>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center justify-between md:flex-col md:items-end md:justify-center gap-2 border-t md:border-none border-gray-100 pt-4 md:pt-0">
-                    <p className="text-lg font-black text-[#0d1b10]">{order.total}</p>
-                    <button onClick={() => alert("Đang mô phỏng mở chi tiết đơn hàng...")} className="text-xs font-bold text-primary hover:underline">Xem hóa đơn</button>
+                    <p className="text-lg font-black text-[#0d1b10]">{formatVnd(order?.totalPrice)}</p>
+                    <button onClick={() => handleViewOrder(order?.orderCode)} className="text-xs font-bold text-primary hover:underline">Xem hóa đơn</button>
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
           </div>
         )}

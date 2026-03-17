@@ -1,14 +1,33 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import { addAddressApi, getAddressesApi } from "../../services/addressApi";
+import { getCartApi, normalizeCartProducts } from "../../services/cartApi";
+import { checkoutOrderApi } from "../../services/orderApi";
+import { setCartProducts } from "../../redux/cartSlice/cartSlice";
+
+const formatVnd = (value) => `${Number(value || 0).toLocaleString("vi-VN")}đ`;
+
+const flattenCartItems = (products) =>
+  (products || []).flatMap(
+    (product) =>
+      product.productDetails?.map((detail) => ({
+        ...detail,
+        productId: product.productId,
+        name: product.name,
+        img: product.img || "https://via.placeholder.com/150",
+      })) || [],
+  );
 
 const Checkout = () => {
   const { isAuthenticated, user } = useSelector((state) => state.auth || { isAuthenticated: false, user: null });
+  const cartProducts = useSelector((state) => state.cart?.products || []);
+  const dispatch = useDispatch();
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [loadingAddresses, setLoadingAddresses] = useState(false);
   const [savingAddress, setSavingAddress] = useState(false);
+  const [checkingOut, setCheckingOut] = useState(false);
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [addressForm, setAddressForm] = useState({
@@ -104,24 +123,58 @@ const Checkout = () => {
     }
   };
 
-  const orderItems = [
-    {
-      id: 1,
-      name: "Sencha Green Tea",
-      details: "50g / Lá rời",
-      price: "$14.00",
-      qty: 1,
-      img: "https://lh3.googleusercontent.com/aida-public/AB6AXuBHwSQh3yVGOtNgVFt5Mzh6Rjx1m18YPEUj99Rwtq6qdvsibhIpHN2f46dQ3PCzFchCKOVy59m3VsSvmrV5R3VfRDtKy3rLPM4vVBcgkSjYJmQLkaGqWXOEbZo-Up7-DNQfGksPLzdAeJ193dCjLSQ9eJgLAq8hthiEd1oA2tL4jMI9KSHGs3alNDJfTmd4DOr5ioX2beU4iSH-pert2a2fsoN0uf5gWGYkxvl6rjvtufxMkRZkQT6-lonJ0vwrLIQIkV0ttv-QDifh",
-    },
-    {
-      id: 2,
-      name: "Earl Grey Reserve",
-      details: "100g / Hộp",
-      price: "$24.00",
-      qty: 2,
-      img: "https://lh3.googleusercontent.com/aida-public/AB6AXuDz3JiwkG7V7_d3dtVWmb9w9PMmC06M3B_jH3O_gf3rksdhRazyJshSr9R2Geid0lD4xp0zN-2Drx9E6Kbgbu1RKAp5U18ryxSzuHxND7g89JQGrAhKPZGdLYnQ5rVZc68QzAWr-V4aobYyM_qen8yCibKwx1twEGL-mTkMuSUyzcB0o_LuehhBeSaWSDUo2zXoCT8x2Esnq0JA0ab7ElTKFxzboncbCKU5Gk8zsxXoSjHUH3h-s3N66mmfDn3pbyYEiSFFMgWdJsms",
-    },
-  ];
+  const orderItems = useMemo(() => flattenCartItems(cartProducts), [cartProducts]);
+
+  const subtotal = useMemo(
+    () => orderItems.reduce((sum, item) => sum + Number(item.unitPrice || 0) * Number(item.quantity || 0), 0),
+    [orderItems],
+  );
+
+  const handleCheckout = async () => {
+    if (!isAuthenticated) {
+      toast.error("Vui long dang nhap de dat hang.");
+      return;
+    }
+
+    if (!selectedAddress?.id) {
+      toast.error("Vui long chon dia chi giao hang.");
+      return;
+    }
+
+    try {
+      setCheckingOut(true);
+
+      const cartResponse = await getCartApi();
+      const normalized = normalizeCartProducts(cartResponse?.data);
+      dispatch(setCartProducts(normalized));
+
+      const refreshedItems = flattenCartItems(normalized);
+      const cartItemIds = refreshedItems
+        .map((item) => item.cartItemId)
+        .filter(Boolean);
+
+      if (cartItemIds.length === 0) {
+        toast.error("Khong tim thay san pham hop le trong gio hang de thanh toan.");
+        return;
+      }
+
+      const response = await checkoutOrderApi({
+        addressId: selectedAddress.id,
+        cartItemIds,
+      });
+
+      const checkoutUrl = response?.data?.checkoutUrl;
+      toast.success(response?.message || "Dat hang thanh cong.");
+
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
+      }
+    } catch (error) {
+      toast.error(error?.message || "Khong the thuc hien thanh toan.");
+    } finally {
+      setCheckingOut(false);
+    }
+  };
 
   return (
     <div className="flex-grow w-full max-w-7xl mx-auto px-4 md:px-8 py-8 md:py-12 font-display bg-background-light text-[#0d1b10] min-h-screen relative">
@@ -472,14 +525,17 @@ const Checkout = () => {
                         {item.name}
                       </h4>
                       <p className="text-xs text-gray-500 mt-1">
-                        {item.details}
+                        {item.sizeLabel}
                       </p>
                     </div>
                     <div className="text-sm font-bold text-[#0d1b10]">
-                      {item.price}
+                      {formatVnd(item.unitPrice)}
                     </div>
                   </div>
                 ))}
+                {orderItems.length === 0 && (
+                  <p className="text-sm text-gray-500">Gio hang dang trong.</p>
+                )}
               </div>
 
               <div className="flex gap-2 mb-6 pt-6 border-t border-[#e7f3e9]">
@@ -496,15 +552,11 @@ const Checkout = () => {
               <div className="space-y-3 pt-6 border-t border-[#e7f3e9] text-sm">
                 <div className="flex justify-between text-gray-600">
                   <span className="font-medium">Tạm tính</span>
-                  <span className="font-bold text-[#0d1b10]">$38.00</span>
+                  <span className="font-bold text-[#0d1b10]">{formatVnd(subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-gray-600">
                   <span className="font-medium">Vận chuyển</span>
                   <span className="font-bold text-[#0d1b10]">Miễn phí</span>
-                </div>
-                <div className="flex justify-between text-gray-600">
-                  <span className="font-medium">Thuế dự kiến</span>
-                  <span className="font-bold text-[#0d1b10]">$3.04</span>
                 </div>
               </div>
 
@@ -513,16 +565,19 @@ const Checkout = () => {
                   Tổng
                 </span>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-xs font-bold text-gray-500">USD</span>
                   <span className="text-3xl font-black text-[#0d1b10]">
-                    $41.04
+                    {formatVnd(subtotal)}
                   </span>
                 </div>
               </div>
 
               <div className="mt-6 flex justify-center ">
-                <button className="w-full sm:w-auto px-20 py-4 bg-primary hover:bg-[#0fd630] text-[#0d1b10] font-black tracking-wide rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98]">
-                  Thanh toán ngay
+                <button
+                  onClick={handleCheckout}
+                  disabled={checkingOut || orderItems.length === 0 || !isAuthenticated}
+                  className="w-full sm:w-auto px-20 py-4 bg-primary hover:bg-[#0fd630] disabled:bg-gray-300 text-[#0d1b10] font-black tracking-wide rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98]"
+                >
+                  {checkingOut ? "Dang xu ly..." : "Thanh toán ngay"}
                 </button>
               </div>
             </div>

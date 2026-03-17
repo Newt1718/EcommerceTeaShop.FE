@@ -11,6 +11,13 @@ function toNumber(value, defaultValue = 0) {
   return Number.isFinite(converted) ? converted : defaultValue;
 }
 
+function ensureCartAuthenticated() {
+  const { accessToken } = getStoredTokens();
+  if (!accessToken) {
+    throw new Error("Vui long dang nhap de su dung gio hang.");
+  }
+}
+
 async function parseResponse(response) {
   let payload = null;
   try {
@@ -93,6 +100,8 @@ function normalizeCartItem(rawItem, index) {
     pickField(variantInfo, ["productVariantId", "variantId", "id"], null) ||
     `variant-${index}`;
 
+  const cartItemId = pickField(rawItem, ["cartItemId"], null);
+
   const quantity = toNumber(
     pickField(rawItem, ["quantity", "qty"], 1),
     1,
@@ -104,7 +113,7 @@ function normalizeCartItem(rawItem, index) {
     0,
   );
 
-  const weight = pickField(rawItem, ["weight", "size"], null);
+  const weight = pickField(rawItem, ["gram", "weight", "size"], null);
   const sizeUnit = pickField(rawItem, ["sizeLabel", "unit", "weightUnit"], "g");
   const sizeLabel =
     weight !== null && weight !== undefined
@@ -126,9 +135,11 @@ function normalizeCartItem(rawItem, index) {
     name,
     img,
     detail: {
-      id: variantId,
+      id: cartItemId || variantId,
+      cartItemId,
       productVariantId: variantId,
       addonId: pickField(rawItem, ["addonId"], null),
+      addonName: pickField(rawItem, ["addonName"], null),
       sizeLabel,
       unitPrice,
       quantity,
@@ -172,12 +183,15 @@ export function normalizeCartProducts(cartData) {
 }
 
 export function getCartApi() {
+  ensureCartAuthenticated();
   return request("/cart", {
     method: "GET",
   });
 }
 
 export function addCartItemApi({ productVariantId, addonId, quantity = 1 }) {
+  ensureCartAuthenticated();
+
   const body = {
     productVariantId,
     quantity,
@@ -190,5 +204,53 @@ export function addCartItemApi({ productVariantId, addonId, quantity = 1 }) {
   return request("/cart/add", {
     method: "POST",
     body: JSON.stringify(body),
+  });
+}
+
+export function updateCartItemApi({ cartItemId, quantity }) {
+  ensureCartAuthenticated();
+
+  const payload = JSON.stringify({
+    cartItemId,
+    quantity,
+  });
+
+  // Backend may expose this endpoint as PUT (common), but keep fallbacks
+  // to PATCH/POST for compatibility across environments.
+  return request("/cart/update", {
+    method: "PUT",
+    body: payload,
+  }).catch((error) => {
+    const statusText = String(error?.payload?.message || error?.message || "");
+
+    if (!statusText.includes("405")) {
+      throw error;
+    }
+
+    return request("/cart/update", {
+      method: "PATCH",
+      body: payload,
+    }).catch((patchError) => {
+      const patchStatusText = String(
+        patchError?.payload?.message || patchError?.message || "",
+      );
+
+      if (!patchStatusText.includes("405")) {
+        throw patchError;
+      }
+
+      return request("/cart/update", {
+        method: "POST",
+        body: payload,
+      });
+    });
+  });
+}
+
+export function removeCartItemApi(cartItemId) {
+  ensureCartAuthenticated();
+
+  return request(`/cart/remove/${cartItemId}`, {
+    method: "DELETE",
   });
 }

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import {
@@ -7,8 +7,16 @@ import {
   removeItem,
   setCartProducts,
 } from "../../redux/cartSlice/cartSlice.js";
-import { getCartApi, normalizeCartProducts } from "../../services/cartApi";
+import {
+  addCartItemApi,
+  getCartApi,
+  normalizeCartProducts,
+  removeCartItemApi,
+  updateCartItemApi,
+} from "../../services/cartApi";
 import { toast } from "react-toastify";
+
+const formatVnd = (value) => `${Number(value || 0).toLocaleString("vi-VN")}đ`;
 
 const Cart = () => {
   const dispatch = useDispatch();
@@ -17,37 +25,116 @@ const Cart = () => {
   // 1. Get data from Redux
   const products = useSelector((state) => state.cart.products);
 
-  useEffect(() => {
-    let mounted = true;
-
-    async function loadCart() {
-      try {
-        setLoading(true);
-        const response = await getCartApi();
-        const normalizedProducts = normalizeCartProducts(response?.data);
-        if (mounted) {
-          dispatch(setCartProducts(normalizedProducts));
-        }
-      } catch (error) {
-        const message = error?.message || "Khong tai duoc gio hang.";
-        if (mounted && message.includes("Giỏ hàng trống")) {
-          dispatch(setCartProducts([]));
-        } else if (mounted) {
-          toast.error(message);
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
+  const loadCart = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await getCartApi();
+      const normalizedProducts = normalizeCartProducts(response?.data);
+      dispatch(setCartProducts(normalizedProducts));
+    } catch (error) {
+      const message = error?.message || "Khong tai duoc gio hang.";
+      if (message.includes("Giỏ hàng trống")) {
+        dispatch(setCartProducts([]));
+      } else {
+        toast.error(message);
       }
+    } finally {
+      setLoading(false);
+    }
+  }, [dispatch]);
+
+  useEffect(() => {
+    loadCart();
+  }, [loadCart]);
+
+  const handleIncreaseQuantity = async (item) => {
+    if (item?.cartItemId) {
+      try {
+        await updateCartItemApi({
+          cartItemId: item.cartItemId,
+          quantity: Number(item.quantity || 0) + 1,
+        });
+        await loadCart();
+      } catch (error) {
+        toast.error(error?.message || "Khong the cap nhat so luong san pham.");
+      }
+      return;
     }
 
-    loadCart();
+    if (!item?.productVariantId) {
+      dispatch(
+        addToCart({
+          productId: item.productId,
+          name: item.name,
+          img: item.img,
+          quantity: 1,
+          productDetail: {
+            id: item.id,
+            sizeLabel: item.sizeLabel,
+            unitPrice: item.unitPrice,
+            addonId: item.addonId || null,
+            addonName: item.addonName || null,
+          },
+        }),
+      );
+      return;
+    }
 
-    return () => {
-      mounted = false;
-    };
-  }, [dispatch]);
+    try {
+      await addCartItemApi({
+        productVariantId: item.productVariantId,
+        quantity: 1,
+      });
+      await loadCart();
+    } catch (error) {
+      toast.error(error?.message || "Khong the cap nhat so luong san pham.");
+    }
+  };
+
+  const handleDecreaseQuantity = async (item) => {
+    if (item?.cartItemId) {
+      try {
+        if (Number(item.quantity || 0) <= 1) {
+          await removeCartItemApi(item.cartItemId);
+        } else {
+          await updateCartItemApi({
+            cartItemId: item.cartItemId,
+            quantity: Number(item.quantity || 0) - 1,
+          });
+        }
+        await loadCart();
+      } catch (error) {
+        toast.error(error?.message || "Khong the cap nhat so luong san pham.");
+      }
+      return;
+    }
+
+    dispatch(
+      decreaseQuantity({
+        productId: item.productId,
+        detailId: item.id,
+      }),
+    );
+  };
+
+  const handleRemoveCartItem = async (item) => {
+    if (item?.cartItemId) {
+      try {
+        await removeCartItemApi(item.cartItemId);
+        await loadCart();
+      } catch (error) {
+        toast.error(error?.message || "Khong the xoa san pham khoi gio hang.");
+      }
+      return;
+    }
+
+    dispatch(
+      removeItem({
+        productId: item.productId,
+        detailId: item.id,
+      }),
+    );
+  };
 
   // 2. Flatten nested structure for the UI list
   const flatCartItems =
@@ -127,9 +214,14 @@ const Cart = () => {
                         <p className="text-gray-500 text-sm font-normal mt-1">
                           {item.sizeLabel}
                         </p>
+                        {item.addonName && (
+                          <p className="text-gray-500 text-sm font-normal mt-1">
+                            Add-on: {item.addonName}
+                          </p>
+                        )}
                       </div>
                       <p className="text-[#0d1b10] text-lg font-bold">
-                        ${item.unitPrice}
+                        {formatVnd(item.unitPrice)}
                       </p>
                     </div>
 
@@ -137,14 +229,7 @@ const Cart = () => {
                       <div className="flex items-center gap-3">
                         <div className="flex items-center rounded-lg border border-[#e7f3e9] bg-background-light h-9">
                           <button
-                            onClick={() =>
-                              dispatch(
-                                decreaseQuantity({
-                                  productId: item.productId,
-                                  detailId: item.id,
-                                }),
-                              )
-                            }
+                            onClick={() => handleDecreaseQuantity(item)}
                             className="w-8 h-full flex items-center justify-center text-gray-500 hover:text-[#0d1b10] transition-colors"
                           >
                             -
@@ -156,15 +241,7 @@ const Cart = () => {
                             value={item.quantity}
                           />
                           <button
-                            onClick={() =>
-                              dispatch(
-                                addToCart({
-                                  productId: item.productId,
-                                  productDetail: item,
-                                  name: item.name,
-                                }),
-                              )
-                            }
+                            onClick={() => handleIncreaseQuantity(item)}
                             className="w-8 h-full flex items-center justify-center text-gray-500 hover:text-[#0d1b10] transition-colors"
                           >
                             +
@@ -172,14 +249,7 @@ const Cart = () => {
                         </div>
                       </div>
                       <button
-                        onClick={() =>
-                          dispatch(
-                            removeItem({
-                              productId: item.productId,
-                              detailId: item.id,
-                            }),
-                          )
-                        }
+                        onClick={() => handleRemoveCartItem(item)}
                         className="text-sm font-medium text-gray-400 hover:text-red-500 transition-colors flex items-center gap-1"
                       >
                         <span className="material-symbols-outlined text-[18px]">
@@ -205,7 +275,7 @@ const Cart = () => {
                 <div className="flex justify-between text-sm text-gray-600">
                   <span>Tạm tính</span>
                   <span className="font-medium text-[#0d1b10]">
-                    ${calculatedTotal}
+                    {formatVnd(calculatedTotal)}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm text-gray-600">
@@ -220,7 +290,7 @@ const Cart = () => {
                     Tổng
                   </span>
                   <span className="text-2xl font-black text-[#0d1b10]">
-                    ${calculatedTotal}
+                    {formatVnd(calculatedTotal)}
                   </span>
                 </div>
               </div>

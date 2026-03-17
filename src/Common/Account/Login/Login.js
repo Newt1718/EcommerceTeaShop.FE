@@ -20,21 +20,52 @@ const Login = () => {
   
   const { loading } = useSelector((state) => state.auth || { loading: false });
 
+  const resolveAuthProfile = (authData) => authData?.user || authData || {};
+
+  const resolveAccessToken = (authData) =>
+    authData?.accessToken ||
+    authData?.access_token ||
+    authData?.jwtToken ||
+    authData?.token ||
+    authData?.tokens?.accessToken ||
+    authData?.tokenData?.accessToken ||
+    null;
+
+  const resolveRefreshToken = (authData) =>
+    authData?.refreshToken ||
+    authData?.refresh_token ||
+    authData?.tokens?.refreshToken ||
+    authData?.tokenData?.refreshToken ||
+    null;
+
   const handleAuthSuccess = (authData, fallbackEmail, authProvider = "local") => {
-    const role = authData?.role || "User";
+    const profile = resolveAuthProfile(authData);
+    const accessToken = resolveAccessToken(authData);
+    const refreshToken = resolveRefreshToken(authData);
+    const role = profile?.role || authData?.role || "User";
 
     dispatch(
       loginSuccess({
         user: {
-          email: authData?.email || fallbackEmail || "",
-          name: authData?.email || fallbackEmail || "",
+          email: profile?.email || authData?.email || fallbackEmail || "",
+          name:
+            profile?.name ||
+            profile?.fullName ||
+            authData?.name ||
+            authData?.fullName ||
+            fallbackEmail ||
+            "",
           role,
           authProvider,
         },
-        accessToken: authData?.accessToken,
-        refreshToken: authData?.refreshToken,
+        accessToken,
+        refreshToken,
       }),
     );
+
+    if (!accessToken) {
+      toast.warning("Dang nhap thanh cong nhung khong tim thay access token.");
+    }
 
     toast.success("Dang nhap thanh cong.");
 

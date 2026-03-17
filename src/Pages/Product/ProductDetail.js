@@ -16,6 +16,8 @@ import { toast } from "react-toastify";
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1563822249366-3efb23b8e0c9?auto=format&fit=crop&w=1200&q=80";
 
+const formatVnd = (value) => `${Number(value || 0).toLocaleString("vi-VN")}đ`;
+
 function normalizeProduct(item) {
   const images = Array.isArray(item.images) ? item.images : [];
   const mainImage = images[0] || FALLBACK_IMAGE;
@@ -28,7 +30,7 @@ function normalizeProduct(item) {
         variant?.id ||
         `${item.productId}-variant-${index}`;
 
-      const weight = Number(variant?.weight || variant?.size || 100);
+      const weight = Number(variant?.gram ?? variant?.weight ?? variant?.size ?? 100);
       const unit = variant?.sizeLabel || variant?.unit || variant?.weightUnit || "g";
 
       return {
@@ -38,7 +40,7 @@ function normalizeProduct(item) {
         weight,
         sizeLabel: unit,
         unitPrice: Number(variant?.price || item.price || 0),
-        stockQuantity: Number(variant?.stockQuantity || item.stockQuantity || 0),
+        stockQuantity: Number(variant?.stock ?? variant?.stockQuantity ?? item.stockQuantity ?? 0),
         sku: variant?.sku || variantId,
       };
     })
@@ -121,6 +123,14 @@ const ProductDetail = () => {
     product?.productDetails.find((detail) => detail.id === selectedDetail?.id) ||
     product?.productDetails[0];
 
+  const selectedDetailId = selectedProductDetail?.id;
+  const selectedDetailStock = selectedProductDetail?.stockQuantity;
+
+  useEffect(() => {
+    const maxQuantity = Math.max(1, Number(selectedDetailStock || 1));
+    setQuantity((prev) => Math.min(Math.max(prev, 1), maxQuantity));
+  }, [selectedDetailId, selectedDetailStock]);
+
   const handleAddToCart = async () => {
     if (!product || !selectedProductDetail) {
       return;
@@ -128,6 +138,16 @@ const ProductDetail = () => {
 
     if (!selectedProductDetail.productVariantId) {
       toast.error("Sản phẩm này chưa có biến thể khả dụng để thêm vào giỏ.");
+      return;
+    }
+
+    if (Number(selectedProductDetail.stockQuantity || 0) <= 0) {
+      toast.error("Biến thể này đã hết hàng.");
+      return;
+    }
+
+    if (quantity > Number(selectedProductDetail.stockQuantity || 0)) {
+      toast.error("Số lượng vượt quá tồn kho hiện tại.");
       return;
     }
 
@@ -256,7 +276,7 @@ const ProductDetail = () => {
               {product.name}
             </h1>
             <p className="text-2xl font-black text-primary">
-              ${selectedProductDetail?.unitPrice?.toFixed(2)}
+              {formatVnd(selectedProductDetail?.unitPrice)}
             </p>
           </div>
 
@@ -274,7 +294,9 @@ const ProductDetail = () => {
               {product.productDetails.map((detail) => (
                 <button
                   key={detail.id}
+                  type="button"
                   onClick={() => setSelectedDetail(detail)}
+                  disabled={Number(detail.stockQuantity || 0) <= 0}
                   className={`px-6 py-2.5 rounded-xl border-2 font-bold transition-all ${
                     selectedProductDetail?.id === detail.id
                       ? "border-primary bg-primary/10 text-[#0d1b10] shadow-sm"
@@ -285,6 +307,9 @@ const ProductDetail = () => {
                 </button>
               ))}
             </div>
+            <p className="text-sm text-gray-500 font-medium">
+              Ton kho: {Number(selectedProductDetail?.stockQuantity || 0)}
+            </p>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 pt-4">
@@ -303,13 +328,19 @@ const ProductDetail = () => {
               />
               <button
                 className="w-10 h-full flex items-center justify-center hover:bg-gray-100 text-gray-500 transition-colors"
-                onClick={() => setQuantity((qty) => qty + 1)}
+                onClick={() =>
+                  setQuantity((qty) =>
+                    Math.min(qty + 1, Math.max(1, Number(selectedProductDetail?.stockQuantity || 1))),
+                  )
+                }
+                disabled={quantity >= Math.max(1, Number(selectedProductDetail?.stockQuantity || 1))}
               >
                 <span className="material-symbols-outlined text-sm">add</span>
               </button>
             </div>
             <button
               onClick={handleAddToCart}
+              disabled={Number(selectedProductDetail?.stockQuantity || 0) <= 0}
               className="flex-1 h-14 bg-primary hover:bg-primary/90 text-[#0d1b10] font-black text-lg rounded-xl shadow-lg shadow-primary/20 flex items-center justify-center gap-2 transition-transform hover:scale-[1.02] active:scale-95"
             >
               <span className="material-symbols-outlined">shopping_bag</span>
@@ -413,7 +444,7 @@ const ProductDetail = () => {
                     {item.name}
                   </h4>
                   <span className="font-bold text-gray-500">
-                    ${Number(item.productDetails[0]?.unitPrice || 0).toFixed(2)}
+                    {formatVnd(item.productDetails[0]?.unitPrice)}
                   </span>
                 </div>
                 <p className="text-sm text-gray-500 font-medium">{item.origin}</p>
