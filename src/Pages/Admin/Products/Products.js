@@ -1,6 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getProductsApi } from '../../../services/productApi';
+import { toast } from 'react-toastify';
+import { deleteAdminProductApi, getAdminProductsApi } from '../../../services/productApi';
+
+const formatVnd = (value) => `${new Intl.NumberFormat('vi-VN').format(Number(value || 0))} đ`;
 
 const Products = () => {
   const [activeTab, setActiveTab] = useState('Tất cả sản phẩm');
@@ -19,7 +22,7 @@ const Products = () => {
       try {
         setLoading(true);
         setError('');
-        const response = await getProductsApi({ pageNumber: 1, pageSize: 100 });
+        const response = await getAdminProductsApi({ pageNumber: 1, pageSize: 100 });
         const mapped = (response?.data?.items || []).map((item) => {
           const stock = Number(item.stockQuantity || 0);
           const isActive = Boolean(item.isActive);
@@ -39,7 +42,7 @@ const Products = () => {
             id: item.productId,
             name: item.name,
             category: item.categoryName || 'Khác',
-            price: `$${Number(item.price || 0).toFixed(2)}`,
+            price: formatVnd(item.price || 0),
             priceValue: Number(item.price || 0),
             stock,
             status,
@@ -83,7 +86,7 @@ const Products = () => {
     }
 
     return result;
-  }, [activeTab, searchQuery, sortOption]);
+  }, [activeTab, searchQuery, sortOption, allProducts]);
 
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
   const currentProducts = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -91,6 +94,21 @@ const Products = () => {
   useEffect(() => {
     setCurrentPage(1);
   }, [activeTab, searchQuery, sortOption]);
+
+  const handleDeleteProduct = async (product) => {
+    const confirmed = window.confirm(`Bạn có chắc chắn muốn xóa sản phẩm "${product.name}"?`);
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await deleteAdminProductApi(product.id);
+      setAllProducts((prev) => prev.filter((item) => item.id !== product.id));
+      toast.success('Xóa sản phẩm thành công.');
+    } catch (error) {
+      toast.error(error?.message || 'Không thể xóa sản phẩm.');
+    }
+  };
 
   return (
     <div className="flex-1 overflow-y-scroll p-4 md:p-8 bg-gray-50 text-slate-900 min-h-screen relative">
@@ -242,10 +260,16 @@ const Products = () => {
                         </span>
                       </td>
                       <td className="p-4 pr-6 text-right space-x-2">
-                        {/* Note: In a real app, this would be a <Link to="/admin/products/edit"> */}
-                        <Link to="/admin/products/edit" className="text-blue-600 hover:bg-blue-50 transition-colors px-2 py-1 rounded-md text-xs font-bold border border-transparent hover:border-blue-200">
+                        <Link to={`/admin/products/edit/${product.id}`} className="text-blue-600 hover:bg-blue-50 transition-colors px-2 py-1 rounded-md text-xs font-bold border border-transparent hover:border-blue-200">
                           Sửa
                         </Link>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteProduct(product)}
+                          className="text-red-600 hover:bg-red-50 transition-colors px-2 py-1 rounded-md text-xs font-bold border border-transparent hover:border-red-200"
+                        >
+                          Xóa
+                        </button>
                       </td>
                     </tr>
                   ))

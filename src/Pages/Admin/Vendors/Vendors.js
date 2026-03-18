@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
 
+const formatVnd = (value) => `${new Intl.NumberFormat('vi-VN').format(Number(value || 0))} đ`;
+
 const Vendors = () => {
   const [activeTab, setActiveTab] = useState('Tất cả đối tác');
   const [searchQuery, setSearchQuery] = useState('');
@@ -7,11 +9,11 @@ const Vendors = () => {
   const [selectedVendor, setSelectedVendor] = useState(null);
 
   const vendors = [
-    { id: 'VND-042', name: 'Fujian Heritage Farms', category: 'Nguồn trà', contact: 'Chen Wei', email: 'chen@fujianheritage.com', status: 'Hoạt động', spent: '$45,200' },
-    { id: 'VND-041', name: 'EcoWrap Solutions', category: 'Đóng gói', contact: 'Sarah Jenkins', email: 's.jenkins@ecowrap.co', status: 'Hoạt động', spent: '$12,450' },
-    { id: 'VND-040', name: 'Kyoto Matcha Co.', category: 'Nguồn trà', contact: 'Kenji Sato', email: 'wholesale@kyotomatcha.jp', status: 'Chờ duyệt', spent: '$0' },
-    { id: 'VND-039', name: 'Global Freight Logistics', category: 'Vận chuyển', contact: 'Mike Ross', email: 'mike.r@gff.com', status: 'Hoạt động', spent: '$8,900' },
-    { id: 'VND-038', name: 'Da Lat Herbal Collectives', category: 'Nguồn trà', contact: 'Nguyen Hoa', email: 'hoa@dalatherbals.vn', status: 'Không hoạt động', spent: '$3,200' }
+    { id: 'VND-042', name: 'Fujian Heritage Farms', category: 'Nguồn trà', contact: 'Chen Wei', email: 'chen@fujianheritage.com', status: 'Hoạt động', spent: 45200000 },
+    { id: 'VND-041', name: 'EcoWrap Solutions', category: 'Đóng gói', contact: 'Sarah Jenkins', email: 's.jenkins@ecowrap.co', status: 'Hoạt động', spent: 12450000 },
+    { id: 'VND-040', name: 'Kyoto Matcha Co.', category: 'Nguồn trà', contact: 'Kenji Sato', email: 'wholesale@kyotomatcha.jp', status: 'Chờ duyệt', spent: 0 },
+    { id: 'VND-039', name: 'Global Freight Logistics', category: 'Vận chuyển', contact: 'Mike Ross', email: 'mike.r@gff.com', status: 'Hoạt động', spent: 8900000 },
+    { id: 'VND-038', name: 'Da Lat Herbal Collectives', category: 'Nguồn trà', contact: 'Nguyen Hoa', email: 'hoa@dalatherbals.vn', status: 'Không hoạt động', spent: 3200000 }
   ];
 
   const filteredVendors = useMemo(() => {
@@ -120,7 +122,7 @@ const Vendors = () => {
               </div>
               <div className="flex justify-between items-center">
                   <span className="text-xs font-bold text-slate-500 uppercase">Chi tiêu YTD</span>
-                <span className="text-sm font-bold text-slate-900">{selectedVendor.spent}</span>
+                <span className="text-sm font-bold text-slate-900">{formatVnd(selectedVendor.spent)}</span>
               </div>
             </div>
 
@@ -179,7 +181,7 @@ const Vendors = () => {
           </div>
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-1">
             <p className="text-slate-500 text-sm font-medium">Tổng mua hàng (YTD)</p>
-            <h3 className="text-2xl font-bold text-blue-600 mt-2">$69,750</h3>
+            <h3 className="text-2xl font-bold text-blue-600 mt-2">{formatVnd(69750000)}</h3>
           </div>
         </div>
 

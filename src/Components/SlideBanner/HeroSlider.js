@@ -1,26 +1,89 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import homeHeroBanners from "../../data/homeHeroBanners";
+import { getPublicBannersApi } from "../../services/adminBannerApi";
 
-const STORAGE_KEY = "homeHeroBanners.v3";
 const FALLBACK_IMAGE = "https://images.pexels.com/photos/2173176/pexels-photo-2173176.jpeg?auto=compress&cs=tinysrgb&w=1600";
 
-const readBanners = () => {
-  if (typeof window === "undefined") return homeHeroBanners;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : homeHeroBanners;
-  } catch (error) {
-    console.warn("Không thể đọc banner khách hàng", error);
-    return homeHeroBanners;
-  }
+const mapApiBannersToSlides = (items = []) => {
+  const now = new Date();
+
+  return items
+    .filter((item) => !item?.isDeleted)
+    .filter((item) => item?.isActive !== false)
+    .filter((item) => {
+      const startDate = item?.startDate ? new Date(item.startDate) : null;
+      const endDate = item?.endDate ? new Date(item.endDate) : null;
+
+      const validStart = !startDate || Number.isNaN(startDate.getTime()) || startDate <= now;
+      const validEnd = !endDate || Number.isNaN(endDate.getTime()) || endDate >= now;
+      return validStart && validEnd;
+    })
+    .sort((a, b) => {
+      const orderA = Number(a?.displayOrder || 0);
+      const orderB = Number(b?.displayOrder || 0);
+
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+
+      const updatedA = new Date(a?.updatedAt || a?.createdAt || 0).getTime();
+      const updatedB = new Date(b?.updatedAt || b?.createdAt || 0).getTime();
+      return updatedB - updatedA;
+    })
+    .map((item, index) => {
+      const fallback = homeHeroBanners[index % homeHeroBanners.length] || homeHeroBanners[0];
+
+      return {
+        id: item?.id || `banner-${index}`,
+        title: fallback?.title || "Trải nghiệm nghệ thuật bình yên",
+        description: fallback?.description || "Khám phá bộ sưu tập trà tuyển chọn của Tea Vault.",
+        cta: fallback?.cta || "Xem bộ sưu tập",
+        link: item?.redirectUrl || fallback?.link || "/shop",
+        image: item?.imageUrl || fallback?.image || FALLBACK_IMAGE,
+      };
+    });
 };
 
 const HeroSlider = () => {
-  const [slides, setSlides] = useState(readBanners);
+  const [slides, setSlides] = useState(homeHeroBanners);
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const timerRef = useRef(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadBanners = async () => {
+      try {
+        const response = await getPublicBannersApi();
+        const apiSlides = mapApiBannersToSlides(response?.data || []);
+
+        if (!mounted) {
+          return;
+        }
+
+        if (apiSlides.length > 0) {
+          setSlides(apiSlides);
+          setIndex(0);
+          return;
+        }
+
+        setSlides(homeHeroBanners);
+      } catch (error) {
+        if (mounted) {
+          setSlides(homeHeroBanners);
+        }
+        console.warn("Không thể tải banner từ API public", error);
+      }
+    };
+
+    loadBanners();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (paused || slides.length === 0) return;
@@ -29,16 +92,6 @@ const HeroSlider = () => {
     }, 4000);
     return () => clearInterval(timerRef.current);
   }, [paused, slides.length]);
-
-  useEffect(() => {
-    const handleSync = () => {
-      const data = readBanners();
-      setSlides(data);
-      setIndex((prev) => (data.length === 0 ? 0 : prev % data.length));
-    };
-    window.addEventListener("homeHeroBannersUpdated", handleSync);
-    return () => window.removeEventListener("homeHeroBannersUpdated", handleSync);
-  }, []);
 
   const prev = () => {
     if (!slides.length) return;

@@ -1,101 +1,181 @@
-import React, { useState } from 'react';
-import homeHeroBanners from '../../../data/homeHeroBanners';
+import React, { useEffect, useMemo, useState } from 'react';
+import { toast } from 'react-toastify';
+import {
+  createAdminBannerApi,
+  deleteAdminBannerApi,
+  getAdminBannersApi,
+  updateAdminBannerApi,
+} from '../../../services/adminBannerApi';
 
-const STORAGE_KEY = 'homeHeroBanners.v3';
-
-const getStoredBanners = () => {
-  if (typeof window === 'undefined') return homeHeroBanners;
-  try {
-    const cached = window.localStorage.getItem(STORAGE_KEY);
-    return cached ? JSON.parse(cached) : homeHeroBanners;
-  } catch (error) {
-    console.warn('Không thể đọc banner từ localStorage', error);
-    return homeHeroBanners;
+const formatDateForInput = (value) => {
+  if (!value) {
+    return '';
   }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return date.toISOString().slice(0, 10);
 };
 
-const persistBanners = (payload) => {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    window.dispatchEvent(new Event('homeHeroBannersUpdated'));
-  } catch (error) {
-    console.warn('Không thể lưu banner xuống localStorage', error);
+const formatDateDisplay = (value) => {
+  if (!value) {
+    return 'Chưa cập nhật';
   }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return 'Chưa cập nhật';
+  }
+
+  return date.toLocaleDateString('vi-VN');
 };
 
-const initialHistory = [
-  { id: '#HIS-021', title: 'Hero Tết 2025', duration: 'Jan 2025 - Feb 2025', owner: 'Uyên', status: 'Đã kết thúc' },
-  { id: '#HIS-019', title: 'Popup Mid Autumn', duration: 'Aug 2024 - Oct 2024', owner: 'Khoa', status: 'Đã kết thúc' },
-  { id: '#HIS-017', title: 'Hero thiết kế bespoke', duration: 'Apr 2024 - Jul 2024', owner: 'Thư', status: 'Đã kết thúc' },
-];
+const emptyForm = {
+  redirectUrl: '/shop',
+  displayOrder: 1,
+  startDate: '',
+  endDate: '',
+  isActive: true,
+  imageFile: null,
+};
 
 const Campaigns = () => {
-  const [liveBanners, setLiveBanners] = useState(getStoredBanners);
-  const [history, setHistory] = useState(initialHistory);
+  const [banners, setBanners] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingIndex, setEditingIndex] = useState(null);
-  const [formData, setFormData] = useState({
-    title: '',
-    note: '',
-    description: '',
-    image: '',
-    cta: '',
-    link: '',
-  });
+  const [editingBanner, setEditingBanner] = useState(null);
+  const [formData, setFormData] = useState(emptyForm);
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadBanners = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const response = await getAdminBannersApi();
+      setBanners(response?.data || []);
+    } catch (apiError) {
+      setError(apiError?.message || 'Không thể tải danh sách banner.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadBanners();
+  }, []);
+
+  const history = useMemo(() => {
+    return [...banners]
+      .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt))
+      .map((item, index) => ({
+        id: `#BAN-${String(index + 1).padStart(3, '0')}`,
+        title: item.redirectUrl || '/shop',
+        duration: `${formatDateDisplay(item.startDate)} - ${formatDateDisplay(item.endDate)}`,
+        owner: 'Admin',
+        status: item.isDeleted ? 'Đã xóa' : item.isActive ? 'Đang hiển thị' : 'Tạm ẩn',
+      }));
+  }, [banners]);
+
+  const resetForm = () => {
+    setFormData(emptyForm);
+    setEditingBanner(null);
+  };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
-    setEditingIndex(null);
-    setFormData({ title: '', note: '', description: '', image: '', cta: '', link: '' });
+    resetForm();
   };
 
-  const openEditModal = (index) => {
-    setEditingIndex(index);
+  const openCreateModal = () => {
+    resetForm();
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (banner) => {
+    setEditingBanner(banner);
     setFormData({
-      title: liveBanners[index]?.title || '',
-      note: liveBanners[index]?.note || '',
-      description: liveBanners[index]?.description || '',
-      image: liveBanners[index]?.image || '',
-      cta: liveBanners[index]?.cta || '',
-      link: liveBanners[index]?.link || '',
+      redirectUrl: banner?.redirectUrl || '/shop',
+      displayOrder: Number(banner?.displayOrder || 1),
+      startDate: formatDateForInput(banner?.startDate),
+      endDate: formatDateForInput(banner?.endDate),
+      isActive: Boolean(banner?.isActive),
+      imageFile: null,
     });
     setIsModalOpen(true);
   };
 
-  const handleSaveEdit = () => {
-    if (editingIndex === null) return;
-    if (!formData.title || !formData.image) {
-      alert('Nhập tối thiểu tiêu đề và link ảnh');
+  const handleSubmit = async () => {
+    if (!formData.redirectUrl) {
+      toast.warning('Vui lòng nhập RedirectUrl.');
       return;
     }
-    const updated = liveBanners.map((banner, idx) =>
-      idx === editingIndex
-        ? {
-            ...banner,
-            title: formData.title,
-            note: formData.note,
-            description: formData.description,
-            image: formData.image,
-            cta: formData.cta,
-            link: formData.link,
-            lastUpdated: new Date().toLocaleDateString('vi-VN'),
-          }
-        : banner,
-    );
-    setLiveBanners(updated);
-    persistBanners(updated);
-    setHistory((prev) => [
-      {
-        id: `#HIS-${prev.length + 22}`,
-        title: `${formData.title} (thay slide ${editingIndex + 1})`,
-        duration: 'Đang chờ áp dụng',
-        owner: 'Bạn',
-        status: 'Vừa cập nhật',
-      },
-      ...prev,
-    ]);
-    handleCloseModal();
+
+    if (!formData.startDate || !formData.endDate) {
+      toast.warning('Vui lòng chọn StartDate và EndDate.');
+      return;
+    }
+
+    if (!editingBanner && !formData.imageFile) {
+      toast.warning('Banner mới cần có ảnh.');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      if (editingBanner?.id) {
+        await updateAdminBannerApi({
+          bannerId: editingBanner.id,
+          imageFile: formData.imageFile,
+          redirectUrl: formData.redirectUrl,
+          displayOrder: formData.displayOrder,
+          startDate: formData.startDate,
+          endDate: formData.endDate,
+          isActive: formData.isActive,
+        });
+        toast.success('Cập nhật banner thành công.');
+      } else {
+        await createAdminBannerApi({
+          imageFile: formData.imageFile,
+          redirectUrl: formData.redirectUrl,
+          displayOrder: formData.displayOrder,
+          startDate: formData.startDate,
+          endDate: formData.endDate,
+        });
+        toast.success('Tạo banner thành công.');
+      }
+
+      await loadBanners();
+      handleCloseModal();
+    } catch (apiError) {
+      toast.error(apiError?.message || 'Không thể lưu banner.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (banner) => {
+    if (!banner?.id) {
+      return;
+    }
+
+    const confirmed = window.confirm('Bạn có chắc chắn muốn xóa banner này?');
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await deleteAdminBannerApi(banner.id);
+      setBanners((prev) => prev.filter((item) => item.id !== banner.id));
+      toast.success('Xóa banner thành công.');
+    } catch (apiError) {
+      toast.error(apiError?.message || 'Không thể xóa banner.');
+    }
   };
 
   return (
@@ -106,7 +186,7 @@ const Campaigns = () => {
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                 <span className="material-symbols-outlined text-blue-600">edit</span>
-                Chỉnh banner Home
+                {editingBanner ? 'Cập nhật banner' : 'Tạo banner mới'}
               </h3>
               <button onClick={handleCloseModal} className="text-slate-400 hover:text-slate-600">
                 <span className="material-symbols-outlined">close</span>
@@ -114,52 +194,79 @@ const Campaigns = () => {
             </div>
             <div className="space-y-4 mb-6">
               <input
-                value={formData.title}
-                onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
+                value={formData.redirectUrl}
+                onChange={(e) => setFormData((prev) => ({ ...prev, redirectUrl: e.target.value }))}
                 className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
-                placeholder="Tiêu đề"
-              />
-              <textarea
-                value={formData.note}
-                onChange={(e) => setFormData((prev) => ({ ...prev, note: e.target.value }))}
-                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
-                rows={2}
-                placeholder="Ghi chú (ví dụ slide nào, thông điệp)"
-              />
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
-                rows={3}
-                placeholder="Mô tả hiển thị dưới tiêu đề"
-              />
-              <input
-                value={formData.image}
-                onChange={(e) => setFormData((prev) => ({ ...prev, image: e.target.value }))}
-                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
-                placeholder="Link ảnh"
+                placeholder="RedirectUrl (vd: /shop)"
               />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <input
-                  value={formData.cta}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, cta: e.target.value }))}
+                  type="number"
+                  min="1"
+                  value={formData.displayOrder}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      displayOrder: Number(e.target.value || 1),
+                    }))
+                  }
                   className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
-                  placeholder="CTA"
+                  placeholder="DisplayOrder"
                 />
+                <div className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm">
                   <input
-                    value={formData.link}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, link: e.target.value }))}
+                    type="checkbox"
+                    checked={formData.isActive}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, isActive: e.target.checked }))}
+                  />
+                  <span>IsActive</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <input
+                  type="date"
+                  value={formData.startDate}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, startDate: e.target.value }))}
                   className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
-                  placeholder="Đường dẫn"
+                  placeholder="StartDate"
                 />
+                <input
+                  type="date"
+                  value={formData.endDate}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, endDate: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
+                  placeholder="EndDate"
+                />
+              </div>
+              <div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      imageFile: e.target.files?.[0] || null,
+                    }))
+                  }
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
+                />
+                <p className="mt-2 text-xs text-slate-500">
+                  {editingBanner
+                    ? 'Cập nhật ảnh nếu muốn thay đổi banner image.'
+                    : 'Banner mới bắt buộc phải có image.'}
+                </p>
               </div>
             </div>
             <div className="flex gap-3">
               <button onClick={handleCloseModal} className="flex-1 py-2.5 rounded-lg bg-slate-100 text-slate-600 font-bold text-sm">
                 Hủy
               </button>
-                <button onClick={handleSaveEdit} className="flex-1 py-2.5 rounded-lg bg-blue-600 text-white font-bold text-sm">
-                  Lưu banner
+              <button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="flex-1 py-2.5 rounded-lg bg-blue-600 text-white font-bold text-sm disabled:opacity-60"
+              >
+                {submitting ? 'Đang xử lý...' : 'Lưu banner'}
               </button>
             </div>
           </div>
@@ -170,34 +277,73 @@ const Campaigns = () => {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-slate-900">Banner trang chủ</h1>
-            <p className="mt-1 text-slate-500">Chọn một banner để chỉnh sửa nội dung.</p>
+            <p className="mt-1 text-slate-500">Quản lý banner bằng API admin.</p>
           </div>
+          <button
+            type="button"
+            onClick={openCreateModal}
+            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700"
+          >
+            <span className="material-symbols-outlined text-[18px]">add</span>
+            Tạo banner
+          </button>
         </div>
 
+        {loading && (
+          <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
+            Đang tải danh sách banner...
+          </div>
+        )}
+
+        {!loading && error && (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+            {error}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {liveBanners.map((banner, index) => (
+          {!loading && !error && banners.map((banner) => (
             <div key={banner.id} className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col">
               <div className="aspect-video bg-slate-100">
-                <img src={banner.image} alt={banner.title} className="w-full h-full object-cover" />
+                <img src={banner.imageUrl} alt={banner.redirectUrl} className="w-full h-full object-cover" />
               </div>
               <div className="p-4 flex flex-col gap-2">
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">{banner.note}</p>
-                <h3 className="text-lg font-black text-slate-900 line-clamp-2">{banner.title}</h3>
-                <p className="text-sm text-slate-500 line-clamp-2">{banner.description}</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
+                  Thứ tự #{banner.displayOrder}
+                </p>
+                <h3 className="text-lg font-black text-slate-900 line-clamp-2">{banner.redirectUrl || '/shop'}</h3>
+                <p className="text-sm text-slate-500 line-clamp-2">
+                  {formatDateDisplay(banner.startDate)} - {formatDateDisplay(banner.endDate)}
+                </p>
                 <div className="flex items-center justify-between text-xs text-slate-500">
-                  <span>Cập nhật {banner.lastUpdated}</span>
-                  <span className="font-bold text-blue-600">{banner.cta}</span>
+                  <span>{banner.isActive ? 'Đang hiển thị' : 'Tạm ẩn'}</span>
+                  <span className="font-bold text-blue-600">{formatDateDisplay(banner.updatedAt || banner.createdAt)}</span>
                 </div>
-                <button
-                        onClick={() => openEditModal(index)}
-                  className="mt-1 inline-flex items-center gap-1 text-sm font-bold text-blue-600"
-                >
-                  <span className="material-symbols-outlined text-[16px]">edit</span>
-                  Chỉnh sửa
-                </button>
+                <div className="mt-1 flex items-center gap-3">
+                  <button
+                    onClick={() => openEditModal(banner)}
+                    className="inline-flex items-center gap-1 text-sm font-bold text-blue-600"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">edit</span>
+                    Chỉnh sửa
+                  </button>
+                  <button
+                    onClick={() => handleDelete(banner)}
+                    className="inline-flex items-center gap-1 text-sm font-bold text-red-600"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">delete</span>
+                    Xóa
+                  </button>
+                </div>
               </div>
             </div>
           ))}
+
+          {!loading && !error && banners.length === 0 && (
+            <div className="col-span-full rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
+              Chưa có banner nào. Bấm "Tạo banner" để thêm mới.
+            </div>
+          )}
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">

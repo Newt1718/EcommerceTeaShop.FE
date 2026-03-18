@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { designVariants } from "../../../data/designVariants";
 
+const formatVnd = (value) => `${new Intl.NumberFormat('vi-VN').format(Number(value || 0))} đ`;
+
 const emptyVariant = {
   id: "",
   label: "",
@@ -115,7 +117,7 @@ const DesignLibrary = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Đơn giá tham khảo ($)</label>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Đơn giá tham khảo (đ)</label>
                 <input
                   type="number"
                   value={formData.unitPrice}
@@ -209,7 +211,7 @@ const DesignLibrary = () => {
           </div>
           <div className="p-5 rounded-xl border border-slate-200 bg-white shadow-sm">
             <p className="text-sm font-medium text-slate-500">Giá trung bình</p>
-            <p className="text-3xl font-black text-slate-900 mt-2">${summary.avgPrice}</p>
+            <p className="text-3xl font-black text-slate-900 mt-2">{formatVnd(summary.avgPrice)}</p>
           </div>
         </div>
 
@@ -233,7 +235,7 @@ const DesignLibrary = () => {
                 </div>
                 <p className="text-sm text-slate-500 flex-1">{variant.description || "Chưa có mô tả"}</p>
                 <div className="flex items-center justify-between">
-                  <span className="text-xl font-black text-slate-900">${Number(variant.unitPrice).toFixed(2)}</span>
+                  <span className="text-xl font-black text-slate-900">{formatVnd(variant.unitPrice)}</span>
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleOpenModal(variant)}

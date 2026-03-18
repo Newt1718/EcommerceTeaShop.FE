@@ -1,83 +1,91 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import Pagination from "../../Components/Pagination/Pagination";
 import CategoryFilter from "../../Components/JournalFilter/CategoryFilter";
 import SearchBar from "../../Components/JournalFilter/SearchBar";
+import { getBlogsApi } from "../../services/blogApi";
 
 const Journal = () => {
-  const articles = [
-    {
-      id: 1,
-      category: "Sức khỏe",
-      date: "12 Tháng 4, 2024",
-      readTime: "5 phút đọc",
-      title: "Lợi ích của trà Oolong với tim mạch",
-      desc: "Nghiên cứu mới cho thấy uống Oolong mỗi ngày có thể giảm đáng kể cholesterol...",
-      img: "https://lh3.googleusercontent.com/aida-public/AB6AXuCDKRTyVz7dd9bxyLv3Lf4DZsy3cWAG0uGqantT8F7Wl0n7KXIEOlg7FutmSBQe45ZQmXPklk7ROrElgqcCVJkcC3WtLXQp755DqCe6u6su2Z3zrTlokYpZt2_duwJpqrhyCGEqUGIOMvE3n46fI-44GnncrOo-JAqwsDpgRansTZymZpS3MvCuUDxtqp46juGDBe5v11HmDMyLt84avwSGqaLVj6lo1vKLwuVD87kiV4yfpkQs47FYQHmT-eZTusKfvJDSa9SLdxjT",
-    },
-    {
-      id: 2,
-      category: "Truyền thống",
-      date: "08 Tháng 4, 2024",
-      readTime: "8 phút đọc",
-      title: "Lịch sử nghi lễ trà Nhật Bản",
-      desc: "Khám phá gốc rễ tâm linh sâu sắc và kỹ thuật tinh xảo của Chanoyu...",
-      img: "https://lh3.googleusercontent.com/aida-public/AB6AXuBtpgP2EgoktGk0RKogqPkO5LxahdcOEFXI8cpfj0kNrWhEPCx7AG-8yn8Yg5LBPrF0fJzzh_AjSRLrBieMQ3QjK8XwUhljgZ8HJob3-66cn8iytCTusqPr7UN7iGrbi-LXmgY3-VkW1PcXE8NziQIvX0dCzdEuBS4tXfCuQnD0YACzYBiUzVEJ3AtOG6PouhT9JFHq1vTk_fSw0fcIOgQPxlwb74d40VR2RQaHCMbz6INOHJPx2olimiYv9MlDYIswTKE4L04LNEb3",
-    },
-    {
-      id: 3,
-      category: "Hướng dẫn",
-      date: "05 Tháng 4, 2024",
-      readTime: "3 phút đọc",
-      title: "Nhiệt độ nước: Bí mật để hương vị ngon hơn",
-      desc: "Đừng làm trà xanh bị cháy. Hãy tìm hiểu nhiệt độ đúng cho từng loại lá...",
-      img: "https://lh3.googleusercontent.com/aida-public/AB6AXuAVuPpQZJmXNuYMMsiFQNt-xooBYyyB_wesNi4RGlDHMoQ8w9m7WNruW5yzFEJTGmKHqCXYqa0N-d8Y7xyhh_rF10DHPcvZmhbZgr3t9XWCLwpNJsbTXpgV_7mZXzF31Dk--_1SHWIFZmoPenLWkMCqm9wwauYC5-drllIg5aLao-fzdCUieHKOv8qYLvbwaF2srRfRBi9kyTdUonaDeUBLWvFbEwJyhaWJ2gnSlOS_3NdEhmvIez5EfdG4ltp_KN5eZ4d86q9YXFny",
-    },
-    {
-      id: 4,
-      category: "Nguồn cung",
-      date: "28 Tháng 3, 2024",
-      readTime: "12 phút đọc",
-      title: "Vụ thu hoạch mùa xuân 2024: Chuyến đi đến Darjeeling",
-      desc: "Góc nhìn độc quyền về lứa đầu mùa và những gia đình thu hoạch tuyệt vời...",
-      img: "https://lh3.googleusercontent.com/aida-public/AB6AXuB6-GO3bel_ztFUMh7MWSHSFVzn_AXH0UnLlp380j_-1DHtaF_ZuVioVt3bxiFbalOr78WdYSAlPwcqa8zvoHaHdhJSL1WG-Gz86cKZRIzFuiOueksWgxKnTMS6lQMHYsaBc7jS2Z99nOzmYI35LSnQnOM9enNVswQ-9SNMkS0js1CTVSI-6szIdoRnuak2Qd58So-3yinNRD_WvZCQWlXjjNrGqKHfTis5oag2l-UT6UXgsVJwMqPbJba5SUIxlYZMjjKnl7cuiql8",
-    },
-    {
-      id: 5,
-      category: "Văn hóa",
-      date: "22 Tháng 3, 2024",
-      readTime: "6 phút đọc",
-      title: "Câu chuyện thú vị về trà Earl Grey",
-      desc: "Một nhà ngoại giao Anh và quả bergamot đã tạo nên hương vị biểu tượng...",
-      img: "https://lh3.googleusercontent.com/aida-public/AB6AXuB21X5QM8_vyKyNKHqgj7_wVX3lKgywA3pNjEsY0dnwA_vMkUAVYOI9TnaQ0dvapFRUKgWaVQmGgS-Md1sJixpg43VtC1vZN2Zk_45mYS4pVzOVSQ3VaJqHApn5T0BufwtXUupAWVp5ArilJQ6yjSnMsoR4gAe6IOGX4mIzpa_8_O9TJ9dbgvEAJexUAWNIRcDFwBfC6Y_KWNSj8GWEWwleh8oub9d9mag8dZufaCNYWejDMZXzJGg6jy_fzr6cflRbfX97fKFDsuXE",
-    },
-    {
-      id: 6,
-      category: "Sức khỏe",
-      date: "15 Tháng 3, 2024",
-      readTime: "4 phút đọc",
-      title: "5 loại trà thảo mộc giúp ngủ ngon hơn tối nay",
-      desc: "Tạm biệt đêm mất ngủ với những loại trà không caffeine giúp dịu tâm trí...",
-      img: "https://lh3.googleusercontent.com/aida-public/AB6AXuD_8d_yp0AsNrWuFAl4NfFOMcZY9TWMI2wU21MpBk0xN4eodZWS0xgMU3WlRtRJIs-XWm9Gqcv9lx_DIkIaesbGmMi6B0xbStNe-zQ_Ool5j6lOsES4LE6mLbTvGus4RXpl7VXOclpJJMI0finUhZz3j2y_6eh5Glab1HmY94upnzQXZIYErxGEiUpPRhOD3R4FY24-WiZeyzo3aqW1z33dTs7OE_NV_T05Logl-I3ST4R3djZMvECIUN3A4itSlCe9dnxQRvpEPCG4",
-    },
-  ];
+  const [selectedCategory, setSelectedCategory] = useState("Tất cả bài viết");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [articles, setArticles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [totalPages, setTotalPages] = useState(1);
 
-  const [selectedCategory, setSelectedCategory] = React.useState("Tất cả bài viết");
-  const [searchTerm, setSearchTerm] = React.useState("");
+  const toDisplayDate = (value) => {
+    if (!value) {
+      return "Chưa cập nhật";
+    }
 
-  const categories = [
-    "Tất cả bài viết",
-    ...Array.from(new Set(articles.map((a) => a.category))),
-  ];
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return "Chưa cập nhật";
+    }
 
-  const filteredArticles = articles.filter((article) => {
-    const matchesCategory =
-      selectedCategory === "Tất cả bài viết" || article.category === selectedCategory;
-    const matchesSearch =
-      article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      article.desc.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+    return date.toLocaleDateString("vi-VN", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+  };
+
+  const estimateReadTime = (text) => {
+    const words = String(text || "").trim().split(/\s+/).filter(Boolean).length;
+    const minutes = Math.max(1, Math.round(words / 180));
+    return `${minutes} phút đọc`;
+  };
+
+  const loadBlogs = async (pageNumber = 1) => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const response = await getBlogsApi({ pageNumber, pageSize: 10 });
+      const data = response?.data || {};
+
+      const mapped = (data?.items || []).map((item) => ({
+        id: item?.id,
+        category: "Nhật ký",
+        date: toDisplayDate(item?.publishDate),
+        readTime: estimateReadTime(item?.shortContent),
+        title: item?.title || "Không tên",
+        desc: item?.shortContent || "Chưa có mô tả ngắn.",
+        img: item?.thumbnail || "",
+      }));
+
+      setArticles(mapped);
+      setTotalPages(Math.max(1, Number(data?.totalPages || 1)));
+    } catch (apiError) {
+      setError(apiError?.message || "Không tải được danh sách bài viết.");
+      setArticles([]);
+      setTotalPages(1);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadBlogs(1);
+  }, []);
+
+  const categories = useMemo(
+    () => ["Tất cả bài viết", ...Array.from(new Set(articles.map((a) => a.category)))],
+    [articles],
+  );
+
+  const filteredArticles = useMemo(() => {
+    return articles.filter((article) => {
+      const matchesCategory =
+        selectedCategory === "Tất cả bài viết" || article.category === selectedCategory;
+      const matchesSearch =
+        article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        article.desc.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesCategory && matchesSearch;
+    });
+  }, [articles, searchTerm, selectedCategory]);
+
+  const featuredArticle = filteredArticles[0] || articles[0];
 
   return (
     <div className="flex-1 w-full max-w-[1440px] mx-auto px-4 md:px-10 py-8 lg:py-12 font-display bg-background-light text-[#0d1b10] min-h-screen relative">
@@ -86,7 +94,9 @@ const Journal = () => {
           className="min-h-[320px] lg:min-h-[450px] bg-cover bg-center flex flex-col justify-end p-8 lg:p-12 relative"
           style={{
             backgroundImage:
-              'linear-gradient(180deg, rgba(13, 27, 16, 0) 0%, rgba(13, 27, 16, 0.9) 100%), url("https://lh3.googleusercontent.com/aida-public/AB6AXuCU4X0WY4ypx5BNXN9-o0u2U3-yhPh8UZkkprTvxpmGJEai7byOc97drkFrNTyJTQiA4LQ-9WnPNOTpYDkDqp4a1qjhK5dO90SJarqP7O5pMae56zXKqoYUMELMTewc_5Jl9Y2b7DtK6XZRzhhVIcbgSj-JtLF1ozEZCIWKdBeOLzoZGZ1Vks1WwtcB1QjyIn2u2QzzNnNtbtvW42gjImwO8UkKf5JtV95RpEp-6ugE8Cbrzjvg8mb5dn48FLsd7O2NpPo1a8baK8F4")',
+              featuredArticle?.img
+                ? `linear-gradient(180deg, rgba(13, 27, 16, 0) 0%, rgba(13, 27, 16, 0.9) 100%), url("${featuredArticle.img}")`
+                : "linear-gradient(180deg, rgba(13, 27, 16, 0.25) 0%, rgba(13, 27, 16, 0.95) 100%)",
           }}
         >
           <div className="max-w-2xl relative z-10">
@@ -94,18 +104,20 @@ const Journal = () => {
               Bài viết nổi bật
             </span>
             <h2 className="text-white text-3xl lg:text-5xl font-black leading-tight mb-4 tracking-tight">
-              Thiền tĩnh buổi sáng với matcha: Nghi thức hiện đại
+              {featuredArticle?.title || "Khám phá Nhật ký trà"}
             </h2>
             <p className="text-gray-200 text-lg mb-8 font-medium line-clamp-2">
-              Khám phá lý do hàng nghìn người yêu trà đổi cà phê sáng sang nghi
-              thức matcha và cách nó thay đổi hiệu suất.
+              {featuredArticle?.desc || "Những bài viết mới nhất về trà sẽ xuất hiện tại đây."}
             </p>
-            <button className="bg-white text-[#0d1b10] px-8 py-3.5 rounded-xl font-black flex items-center gap-2 hover:bg-primary transition-colors shadow-lg shadow-black/20">
-              Đọc bài viết{" "}
-              <span className="material-symbols-outlined text-[20px]">
-                arrow_forward
-              </span>
-            </button>
+            {featuredArticle?.id && (
+              <Link
+                to={`/journal/${featuredArticle.id}`}
+                className="inline-flex bg-white text-[#0d1b10] px-8 py-3.5 rounded-xl font-black items-center gap-2 hover:bg-primary transition-colors shadow-lg shadow-black/20"
+              >
+                Đọc bài viết
+                <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
+              </Link>
+            )}
           </div>
         </div>
       </section>
@@ -121,8 +133,21 @@ const Journal = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {filteredArticles.map((article) => (
+      {loading && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-slate-500 text-sm">
+          Đang tải danh sách bài viết...
+        </div>
+      )}
+
+      {!loading && error && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-red-600 text-sm">
+          {error}
+        </div>
+      )}
+
+      {!loading && !error && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {filteredArticles.map((article) => (
           <Link
             to={`/journal/${article.id}`}
             key={article.id}
@@ -131,7 +156,11 @@ const Journal = () => {
             <div className="relative aspect-[4/3] overflow-hidden bg-surface-light">
               <div
                 className="w-full h-full bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
-                style={{ backgroundImage: `url("${article.img}")` }}
+                  style={{
+                    backgroundImage: article.img
+                      ? `url("${article.img}")`
+                      : "linear-gradient(120deg, #dfe8df, #f4f7f3)",
+                  }}
               ></div>
               <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest text-[#0d1b10] shadow-sm">
                 {article.category}
@@ -158,10 +187,19 @@ const Journal = () => {
               </div>
             </div>
           </Link>
-        ))}
-      </div>
+          ))}
 
-      <Pagination totalPages={12}></Pagination>
+          {filteredArticles.length === 0 && (
+            <div className="col-span-full rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-500 text-sm">
+              Không tìm thấy bài viết phù hợp.
+            </div>
+          )}
+        </div>
+      )}
+
+      {!loading && !error && (
+        <Pagination totalPages={totalPages} onPageChange={loadBlogs}></Pagination>
+      )}
     </div>
   );
 };

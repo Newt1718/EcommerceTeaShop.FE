@@ -10,7 +10,7 @@ async function parseResponse(response) {
   } catch (error) {
     payload = {
       isSucess: false,
-      message: `Khong doc duoc du lieu (HTTP ${response.status}).`,
+      message: `Không đọc được dữ liệu (HTTP ${response.status}).`,
       data: null,
       businessCode: 0,
     };
@@ -18,10 +18,23 @@ async function parseResponse(response) {
   return payload;
 }
 
-async function requestWithAuth(path, retry = true) {
+async function requestWithAuth(path, options = {}, retry = true) {
   const { accessToken, refreshToken } = getStoredTokens();
+  const hasBody = options?.body !== undefined;
+  const isFormDataBody =
+    typeof FormData !== "undefined" && options?.body instanceof FormData;
 
-  const requestAnonymous = () => fetch(`${API_BASE_URL}${path}`);
+  const buildHeaders = (token) => ({
+    ...(hasBody && !isFormDataBody ? { "Content-Type": "application/json" } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(options?.headers || {}),
+  });
+
+  const requestAnonymous = () =>
+    fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers: buildHeaders(null),
+    });
 
   // If there is no access token, call as anonymous directly.
   if (!accessToken) {
@@ -29,9 +42,8 @@ async function requestWithAuth(path, retry = true) {
   }
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: {
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-    },
+    ...options,
+    headers: buildHeaders(accessToken),
   });
 
   if (response.status === 401 && retry) {
@@ -44,11 +56,8 @@ async function requestWithAuth(path, retry = true) {
     try {
       const refreshed = await refreshTokenManual();
       const retried = await fetch(`${API_BASE_URL}${path}`, {
-        headers: {
-          ...(refreshed?.accessToken
-            ? { Authorization: `Bearer ${refreshed.accessToken}` }
-            : {}),
-        },
+        ...options,
+        headers: buildHeaders(refreshed?.accessToken),
       });
 
       if (retried.status === 401) {
@@ -66,17 +75,21 @@ async function requestWithAuth(path, retry = true) {
   return response;
 }
 
-async function get(path) {
-  const response = await requestWithAuth(path, true);
+async function request(path, options = {}) {
+  const response = await requestWithAuth(path, options, true);
   const payload = await parseResponse(response);
 
   if (!response.ok || !payload?.isSucess) {
-    const error = new Error(payload?.message || "Yeu cau API that bai.");
+    const error = new Error(payload?.message || "Yêu cầu API thất bại.");
     error.payload = payload;
     throw error;
   }
 
   return payload;
+}
+
+async function get(path) {
+  return request(path, { method: "GET" });
 }
 
 export function getProductsApi({ pageNumber = 1, pageSize = 10 } = {}) {
@@ -117,4 +130,135 @@ export function searchCategoriesApi({
   return get(
     `/category/search?keyword=${encodedKeyword}&pageNumber=${pageNumber}&pageSize=${pageSize}`,
   );
+}
+
+export function getAdminProductsApi({ pageNumber = 1, pageSize = 10 } = {}) {
+  return get(`/AdminProduct/list?pageNumber=${pageNumber}&pageSize=${pageSize}`);
+}
+
+export function getAdminCategoriesApi({ pageNumber = 1, pageSize = 10 } = {}) {
+  return get(`/admin/category?pageNumber=${pageNumber}&pageSize=${pageSize}`);
+}
+
+export function getAdminCategoryDetailApi(categoryId) {
+  return get(`/admin/category/${categoryId}`);
+}
+
+export function createAdminCategoryApi({ name, image }) {
+  const formData = new FormData();
+  formData.append("Name", name || "");
+  if (image) {
+    formData.append("Image", image);
+  }
+
+  return request(`/admin/category`, {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export function updateAdminCategoryApi({ categoryId, name, image }) {
+  const formData = new FormData();
+  formData.append("Name", name || "");
+  if (image) {
+    formData.append("Image", image);
+  }
+
+  return request(`/admin/category/${categoryId}`, {
+    method: "PUT",
+    body: formData,
+  });
+}
+
+export function deleteAdminCategoryApi(categoryId) {
+  return request(`/admin/category/${categoryId}`, {
+    method: "DELETE",
+  });
+}
+
+export function getAdminProductDetailApi(productId) {
+  return get(`/AdminProduct/detail/${productId}`);
+}
+
+export function createAdminProductApi({
+  name,
+  description,
+  categoryId,
+  variants = [],
+  images = [],
+}) {
+  const formData = new FormData();
+  formData.append("Name", name || "");
+  formData.append("Description", description || "");
+  formData.append("CategoryId", categoryId || "");
+  formData.append("Variants", JSON.stringify(variants || []));
+
+  (images || []).forEach((file) => {
+    if (file) {
+      formData.append("Images", file);
+    }
+  });
+
+  return request("/AdminProduct/create", {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export function updateAdminProductApi({
+  productId,
+  name,
+  description,
+  categoryId,
+  isActive,
+  newImages = [],
+}) {
+  const formData = new FormData();
+  formData.append("Name", name || "");
+  formData.append("Description", description || "");
+  formData.append("CategoryId", categoryId || "");
+  formData.append("IsActive", String(Boolean(isActive)));
+
+  (newImages || []).forEach((file) => {
+    if (file) {
+      formData.append("NewImages", file);
+    }
+  });
+
+  return request(`/AdminProduct/update/${productId}`, {
+    method: "PUT",
+    body: formData,
+  });
+}
+
+export function updateAdminProductVariantApi({
+  variantId,
+  price,
+  stockQuantity,
+}) {
+  return request(`/AdminProduct/update-variant/${variantId}`, {
+    method: "PUT",
+    body: JSON.stringify({
+      price: Number(price),
+      stockquantity: Number(stockQuantity),
+    }),
+  });
+}
+
+export function setAdminProductMainImageApi(imageId) {
+  return request(`/AdminProduct/set-main-image/${imageId}`, {
+    method: "PUT",
+  });
+}
+
+export function deleteAdminProductImageApi(imageId) {
+  return request(`/AdminProduct/delete-image/${imageId}`, {
+    method: "DELETE",
+  });
+}
+
+export function deleteAdminProductApi(productId) {
+  return request(`/AdminProduct/delete/${productId}`, {
+    method: "DELETE",
+  });
 }

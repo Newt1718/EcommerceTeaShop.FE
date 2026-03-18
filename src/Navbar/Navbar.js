@@ -1,14 +1,40 @@
 import React, { useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { logout as logoutAction } from '../redux/authSlice/authSlice';
+import { logoutApi } from '../services/authApi';
 
 const Navbar = () => {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const { accessToken, refreshToken } = useSelector(
+    (state) => state.auth || { accessToken: null, refreshToken: null },
+  );
 
   const notifications = [
     { id: 1, text: "Đã nhận đơn mới #TV-1045", time: "5p trước", unread: true },
     { id: 2, text: "Alice Green đã mở một phiếu hỗ trợ", time: "12p trước", unread: true },
     { id: 3, text: "Tồn kho Imperial Jasmine Pearl sắp hết", time: "2g trước", unread: false },
   ];
+
+  const handleLogout = async () => {
+    try {
+      if (accessToken && refreshToken) {
+        await logoutApi({ accessToken, refreshToken });
+      }
+    } catch (error) {
+      // Continue local logout even if backend logout fails.
+      console.log('[Navbar] Logout API failed:', error?.message || error);
+    } finally {
+      dispatch(logoutAction());
+      setIsProfileOpen(false);
+      toast.success('Đăng xuất thành công.');
+      navigate('/login', { replace: true });
+    }
+  };
 
   return (
     <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 sticky top-0 z-40">
@@ -80,7 +106,7 @@ const Navbar = () => {
                 </button>
                 <div className="border-t border-slate-100 my-1"></div>
                 <button 
-                  onClick={() => alert("Đang mô phỏng đăng xuất từ backend...")}
+                  onClick={handleLogout}
                   className="w-full text-left px-4 py-2.5 text-sm font-bold text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
                 >
                   <span className="material-symbols-outlined text-[18px]">logout</span> 

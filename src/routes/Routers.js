@@ -29,6 +29,8 @@ import Products from "../Pages/Admin/Products/Products";
 import Campaigns from "../Pages/Admin/Campaigns/Campaigns";
 import DesignLibrary from "../Pages/Admin/DesignLibrary/DesignLibrary";
 import Customers from "../Pages/Admin/Customers/Customers";
+import Categories from "../Pages/Admin/Categories/Categories";
+import Blogs from "../Pages/Admin/Blogs/Blogs";
 import CustomDesign from "../Pages/CustomDesign/CustomDesign";
 
 const Routers = () => {
@@ -36,6 +38,7 @@ const Routers = () => {
     (state) => state.auth || { isAuthenticated: false, user: null },
   );
   const isAdmin = (user?.role || "").toLowerCase() === "admin";
+  const authenticatedRedirectPath = isAdmin ? "/admin/dashboard" : "/";
 
   const routing = useRoutes([
     {
@@ -69,16 +72,18 @@ const Routers = () => {
         { path: "dashboard", element: <Dashboard /> },
         { path: "orders", element: <Orders /> },
         { path: "products", element: <Products /> },
-        { path: "products/edit", element: <ProductEdit /> },
+        { path: "products/edit/:productId", element: <ProductEdit /> },
         { path: "products/add", element: <ProductEdit /> },
+        { path: "categories", element: <Categories /> },
         { path: "campaigns", element: <Campaigns /> },
         { path: "design-library", element: <DesignLibrary /> },
+        { path: "blogs", element: <Blogs /> },
         { path: "customers", element: <Customers /> },
       ],
     },
     {
       path: "/login",
-      element: !isAuthenticated ? <Login /> : <Navigate to="/" />,
+      element: !isAuthenticated ? <Login /> : <Navigate to={authenticatedRedirectPath} replace />,
     },
     { path: "/register", element: <Register /> },
     { path: "/forgot-password", element: <ForgotPassword /> },

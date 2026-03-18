@@ -16,6 +16,7 @@ function Sidebar() {
       items: [
         { path: "/admin/orders", label: "Đơn hàng", icon: "local_shipping" },
         { path: "/admin/products", label: "Sản phẩm & Tồn kho", icon: "inventory_2" },
+        { path: "/admin/categories", label: "Danh mục", icon: "category" },
       ]
     },
     {
@@ -23,6 +24,7 @@ function Sidebar() {
       items: [
         { path: "/admin/campaigns", label: "Banner Studio", icon: "brush" },
         { path: "/admin/design-library", label: "Thiết kế đặt riêng", icon: "stylus_note" },
+        { path: "/admin/blogs", label: "Bài viết / Blog", icon: "article" },
       ]
     },
     {

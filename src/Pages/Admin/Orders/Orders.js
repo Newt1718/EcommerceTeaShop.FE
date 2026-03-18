@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 
+const formatVnd = (value) => `${new Intl.NumberFormat('vi-VN').format(Number(value || 0))} đ`;
+
 const Orders = () => {
   const [activeTab, setActiveTab] = useState('Tất cả đơn');
   const [searchQuery, setSearchQuery] = useState('');
@@ -12,14 +14,14 @@ const Orders = () => {
   const itemsPerPage = 5;
 
   const allOrders = [
-    { id: '#TR-2045', customer: 'Alice Green', email: 'alice@example.com', type: 'Trà', date: 'Oct 24, 2023', time: '10:23 AM', status: 'Đang pha chế', amount: '$85.00', statusColor: 'bg-blue-100 text-blue-800 border-blue-200' },
-    { id: '#TK-2034', customer: 'Bob Herbal', email: 'bob@herbal.com', type: 'Thiết kế trà', date: 'Oct 24, 2023', time: '09:15 AM', status: 'Chờ phê duyệt', amount: '$122.50', statusColor: 'bg-orange-100 text-orange-800 border-orange-200' },
-    { id: '#TR-2032', customer: 'Charlie Chai', email: 'charlie@tea.co', type: 'Trà', date: 'Oct 23, 2023', time: '04:45 PM', status: 'Đang giao', amount: '$45.00', statusColor: 'bg-purple-100 text-purple-800 border-purple-200' },
-    { id: '#TR-2031', customer: 'Diana Darjeeling', email: 'diana@outlook.com', type: 'Trà', date: 'Oct 23, 2023', time: '02:30 PM', status: 'Đã giao', amount: '$35.00', statusColor: 'bg-green-100 text-green-800 border-green-200' },
-    { id: '#TK-2029', customer: 'Fiona Fruit', email: 'fiona@fruit.com', type: 'Thiết kế trà', date: 'Oct 22, 2023', time: '08:00 AM', status: 'Đang phối mẫu', amount: '$212.00', statusColor: 'bg-blue-100 text-blue-800 border-blue-200' },
-    { id: '#TR-2028', customer: 'George Glass', email: 'george@glass.com', type: 'Trà', date: 'Oct 21, 2023', time: '11:20 AM', status: 'Đã giao', amount: '$64.00', statusColor: 'bg-green-100 text-green-800 border-green-200' },
-    { id: '#TK-2027', customer: 'Hannah Honey', email: 'hannah@honey.com', type: 'Thiết kế trà', date: 'Oct 21, 2023', time: '09:00 AM', status: 'Chờ xử lý', amount: '$190.00', statusColor: 'bg-orange-100 text-orange-800 border-orange-200' },
-    { id: '#TR-2026', customer: 'Ian Ice', email: 'ian@ice.com', type: 'Trà', date: 'Oct 20, 2023', time: '01:15 PM', status: 'Đang giao', amount: '$25.00', statusColor: 'bg-purple-100 text-purple-800 border-purple-200' }
+    { id: '#TR-2045', customer: 'Alice Green', email: 'alice@example.com', type: 'Trà', date: 'Oct 24, 2023', time: '10:23 AM', status: 'Đang pha chế', amount: 85000, statusColor: 'bg-blue-100 text-blue-800 border-blue-200' },
+    { id: '#TK-2034', customer: 'Bob Herbal', email: 'bob@herbal.com', type: 'Thiết kế trà', date: 'Oct 24, 2023', time: '09:15 AM', status: 'Chờ phê duyệt', amount: 122500, statusColor: 'bg-orange-100 text-orange-800 border-orange-200' },
+    { id: '#TR-2032', customer: 'Charlie Chai', email: 'charlie@tea.co', type: 'Trà', date: 'Oct 23, 2023', time: '04:45 PM', status: 'Đang giao', amount: 45000, statusColor: 'bg-purple-100 text-purple-800 border-purple-200' },
+    { id: '#TR-2031', customer: 'Diana Darjeeling', email: 'diana@outlook.com', type: 'Trà', date: 'Oct 23, 2023', time: '02:30 PM', status: 'Đã giao', amount: 35000, statusColor: 'bg-green-100 text-green-800 border-green-200' },
+    { id: '#TK-2029', customer: 'Fiona Fruit', email: 'fiona@fruit.com', type: 'Thiết kế trà', date: 'Oct 22, 2023', time: '08:00 AM', status: 'Đang phối mẫu', amount: 212000, statusColor: 'bg-blue-100 text-blue-800 border-blue-200' },
+    { id: '#TR-2028', customer: 'George Glass', email: 'george@glass.com', type: 'Trà', date: 'Oct 21, 2023', time: '11:20 AM', status: 'Đã giao', amount: 64000, statusColor: 'bg-green-100 text-green-800 border-green-200' },
+    { id: '#TK-2027', customer: 'Hannah Honey', email: 'hannah@honey.com', type: 'Thiết kế trà', date: 'Oct 21, 2023', time: '09:00 AM', status: 'Chờ xử lý', amount: 190000, statusColor: 'bg-orange-100 text-orange-800 border-orange-200' },
+    { id: '#TR-2026', customer: 'Ian Ice', email: 'ian@ice.com', type: 'Trà', date: 'Oct 20, 2023', time: '01:15 PM', status: 'Đang giao', amount: 25000, statusColor: 'bg-purple-100 text-purple-800 border-purple-200' }
   ];
 
   const customersWithBothTypes = useMemo(() => {
@@ -54,9 +56,9 @@ const Orders = () => {
     });
 
     if (sortOption === 'Giá trị cao nhất') {
-      result.sort((a, b) => parseFloat(b.amount.replace('$', '')) - parseFloat(a.amount.replace('$', '')));
+      result.sort((a, b) => Number(b.amount) - Number(a.amount));
     } else if (sortOption === 'Giá trị thấp nhất') {
-      result.sort((a, b) => parseFloat(a.amount.replace('$', '')) - parseFloat(b.amount.replace('$', '')));
+      result.sort((a, b) => Number(a.amount) - Number(b.amount));
     } else if (sortOption === 'Cũ nhất') {
       result.sort((a, b) => a.id.localeCompare(b.id)); 
     } else {
@@ -113,19 +115,19 @@ const Orders = () => {
               <div className="p-4 space-y-3">
                 <div className="flex justify-between items-center text-sm">
                   <span className="font-medium text-slate-700">Premium Tea Collection (Box)</span>
-                  <span className="font-bold text-slate-900">{selectedOrder.amount}</span>
+                  <span className="font-bold text-slate-900">{formatVnd(selectedOrder.amount)}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm border-t border-slate-100 pt-3">
                   <span className="font-medium text-slate-500">Tạm tính</span>
-                  <span className="font-bold text-slate-900">{selectedOrder.amount}</span>
+                  <span className="font-bold text-slate-900">{formatVnd(selectedOrder.amount)}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm border-t border-slate-100 pt-3">
                   <span className="font-medium text-slate-500">Vận chuyển tiêu chuẩn</span>
-                  <span className="font-bold text-slate-900">$0.00</span>
+                  <span className="font-bold text-slate-900">{formatVnd(0)}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm border-t border-slate-100 pt-3">
                   <span className="font-black text-slate-900 uppercase">Tổng thanh toán</span>
-                  <span className="font-black text-blue-600 text-lg">{selectedOrder.amount}</span>
+                  <span className="font-black text-blue-600 text-lg">{formatVnd(selectedOrder.amount)}</span>
                 </div>
               </div>
             </div>
@@ -273,7 +275,7 @@ const Orders = () => {
                         </span>
                       </td>
                       <td className="p-4 text-sm font-bold text-slate-900 truncate">
-                        {order.amount}
+                        {formatVnd(order.amount)}
                       </td>
                       <td className="p-4 pr-6 text-right space-x-2">
                         <button 
