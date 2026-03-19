@@ -18,6 +18,74 @@ import { toast } from "react-toastify";
 
 const formatVnd = (value) => `${Number(value || 0).toLocaleString("vi-VN")}đ`;
 
+const isLocalOnlyDetail = (detail) => !detail?.cartItemId && !detail?.productVariantId;
+
+const extractLocalOnlyProducts = (products) => {
+  const list = Array.isArray(products) ? products : [];
+
+  return list
+    .map((product) => {
+      const details = (product?.productDetails || []).filter(isLocalOnlyDetail);
+
+      if (details.length === 0) {
+        return null;
+      }
+
+      return {
+        productId: product.productId,
+        name: product.name,
+        img: product.img || null,
+        productDetails: details,
+      };
+    })
+    .filter(Boolean);
+};
+
+const mergeProductsByDetails = (serverProducts, localProducts) => {
+  const merged = new Map();
+
+  (Array.isArray(serverProducts) ? serverProducts : []).forEach((product) => {
+    merged.set(product.productId, {
+      ...product,
+      productDetails: Array.isArray(product.productDetails)
+        ? [...product.productDetails]
+        : [],
+    });
+  });
+
+  (Array.isArray(localProducts) ? localProducts : []).forEach((localProduct) => {
+    const existing = merged.get(localProduct.productId);
+
+    if (!existing) {
+      merged.set(localProduct.productId, {
+        ...localProduct,
+        productDetails: Array.isArray(localProduct.productDetails)
+          ? [...localProduct.productDetails]
+          : [],
+      });
+      return;
+    }
+
+    localProduct.productDetails?.forEach((localDetail) => {
+      const matchedDetail = existing.productDetails.find(
+        (detail) => detail.id === localDetail.id,
+      );
+
+      if (matchedDetail) {
+        matchedDetail.quantity += Number(localDetail.quantity || 0);
+      } else {
+        existing.productDetails.push({ ...localDetail });
+      }
+    });
+
+    if (!existing.img && localProduct.img) {
+      existing.img = localProduct.img;
+    }
+  });
+
+  return Array.from(merged.values());
+};
+
 const Cart = () => {
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(true);
@@ -30,11 +98,27 @@ const Cart = () => {
       setLoading(true);
       const response = await getCartApi();
       const normalizedProducts = normalizeCartProducts(response?.data);
-      dispatch(setCartProducts(normalizedProducts));
+
+      const storedProducts =
+        localStorage.getItem("cartList") !== null
+          ? JSON.parse(localStorage.getItem("cartList"))
+          : [];
+      const localOnlyProducts = extractLocalOnlyProducts(storedProducts);
+      const mergedProducts = mergeProductsByDetails(
+        normalizedProducts,
+        localOnlyProducts,
+      );
+
+      dispatch(setCartProducts(mergedProducts));
     } catch (error) {
       const message = error?.message || "Khong tai duoc gio hang.";
       if (message.includes("Giỏ hàng trống")) {
-        dispatch(setCartProducts([]));
+        const storedProducts =
+          localStorage.getItem("cartList") !== null
+            ? JSON.parse(localStorage.getItem("cartList"))
+            : [];
+        const localOnlyProducts = extractLocalOnlyProducts(storedProducts);
+        dispatch(setCartProducts(localOnlyProducts));
       } else {
         toast.error(message);
       }
@@ -144,7 +228,7 @@ const Cart = () => {
           ...detail,
           productId: product.productId,
           name: product.name,
-          img: product.img || "https://via.placeholder.com/150",
+          img: product.img || null,
         })) || [],
     ) || [];
 
@@ -199,10 +283,16 @@ const Cart = () => {
                   className="flex flex-col sm:flex-row gap-6 bg-white p-6 rounded-xl shadow-sm border border-transparent hover:border-[#e7f3e9] transition-all"
                 >
                   <div className="shrink-0">
-                    <div
-                      className="bg-center bg-no-repeat aspect-square bg-cover rounded-lg w-full sm:w-28 h-28"
-                      style={{ backgroundImage: `url("${item.img}")` }}
-                    ></div>
+                    {item.img ? (
+                      <div
+                        className="bg-center bg-no-repeat aspect-square bg-cover rounded-lg w-full sm:w-28 h-28"
+                        style={{ backgroundImage: `url("${item.img}")` }}
+                      ></div>
+                    ) : (
+                      <div className="rounded-lg w-full sm:w-28 h-28 bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 text-xs font-bold px-2 text-center">
+                        Không yêu cầu ảnh
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex flex-1 flex-col justify-between h-full min-h-[112px]">

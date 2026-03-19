@@ -18,9 +18,82 @@ const FALLBACK_TEA_TYPES = [
 ];
 
 const ITEMS_PER_PAGE = 6;
+const PUBLIC_API_BLOCKED_MESSAGE =
+  "Du lieu san pham tam thoi chua duoc mo cong khai. Vui long quay lai sau.";
+
+function isUnauthorizedError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return message.includes("401") || message.includes("unauthorized");
+}
+
+function extractImageUrl(image) {
+  if (!image) {
+    return null;
+  }
+
+  if (typeof image === "string") {
+    return image;
+  }
+
+  if (typeof image !== "object") {
+    return null;
+  }
+
+  return (
+    image.imageUrl ||
+    image.url ||
+    image.path ||
+    image.src ||
+    image.thumbnail ||
+    image.thumbnailUrl ||
+    null
+  );
+}
+
+function getProductFirstImage(item) {
+  const directCandidates = [
+    item?.imageUrl,
+    item?.thumbnail,
+    item?.thumbnailUrl,
+    item?.coverImage,
+    item?.mainImage,
+    item?.image,
+  ];
+
+  const direct = directCandidates.find((value) => Boolean(value));
+  if (direct) {
+    return direct;
+  }
+
+  const arraySources = [item?.images, item?.productImages, item?.imageResponses];
+
+  for (const source of arraySources) {
+    if (!Array.isArray(source)) {
+      continue;
+    }
+
+    const main = source.find((image) =>
+      Boolean(image?.isMain || image?.isPrimary || image?.isDefault || image?.isMainImage),
+    );
+
+    const fromMain = extractImageUrl(main);
+    if (fromMain) {
+      return fromMain;
+    }
+
+    for (const image of source) {
+      const fromItem = extractImageUrl(image);
+      if (fromItem) {
+        return fromItem;
+      }
+    }
+  }
+
+  return null;
+}
 
 function mapProduct(item) {
-  const firstImage = Array.isArray(item.images) ? item.images[0] : null;
+  const firstImage = getProductFirstImage(item);
   const derivedIsActive =
     Boolean(item.isActive) ||
     Number(item.price || 0) > 0 ||
@@ -52,20 +125,20 @@ async function enrichProductsWithVariantData(items) {
     safeItems.map(async (item) => {
       const hasBasePrice = Number(item?.price || 0) > 0;
       const hasStock = Number(item?.stockQuantity || 0) > 0;
+      const hasImage = Boolean(getProductFirstImage(item));
 
-      if (hasBasePrice || hasStock) {
+      if ((hasBasePrice || hasStock) && hasImage) {
         return item;
       }
 
       try {
         const response = await getProductDetailApi(item.productId);
-        const variants = Array.isArray(response?.data?.variants)
-          ? response.data.variants
+        const detail = response?.data || {};
+        const variants = Array.isArray(detail?.variants)
+          ? detail.variants
           : [];
 
-        if (variants.length === 0) {
-          return item;
-        }
+        const detailImage = getProductFirstImage(detail);
 
         const prices = variants
           .map((variant) => Number(variant?.price || 0))
@@ -75,6 +148,12 @@ async function enrichProductsWithVariantData(items) {
 
         return {
           ...item,
+          images:
+            detailImage && (!Array.isArray(item.images) || item.images.length === 0)
+              ? [detailImage]
+              : item.images,
+          imageUrl: item.imageUrl || detail.imageUrl || detailImage || null,
+          thumbnail: item.thumbnail || detail.thumbnail || null,
           price: prices.length > 0 ? Math.min(...prices) : Number(item?.price || 0),
           stockQuantity:
             stocks.length > 0
@@ -130,6 +209,7 @@ const Shop = () => {
   const [appliedKeyword, setAppliedKeyword] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [publicApiBlocked, setPublicApiBlocked] = useState(false);
 
   const handleReset = () => {
     setCurrentPage(1);
@@ -148,21 +228,37 @@ const Shop = () => {
 
   useEffect(() => {
     const loadCategories = async () => {
+      if (publicApiBlocked) {
+        setCategories([]);
+        return;
+      }
+
       try {
         const response = await getCategoriesApi({ pageNumber: 1, pageSize: 50 });
         const items = response?.data?.items || [];
         setCategories(items);
       } catch (apiError) {
+        if (isUnauthorizedError(apiError)) {
+          setPublicApiBlocked(true);
+          return;
+        }
         console.log("[Shop] Không tải được category API, dùng fallback.");
         setCategories([]);
       }
     };
 
     loadCategories();
-  }, []);
+  }, [publicApiBlocked]);
 
   useEffect(() => {
     const loadProducts = async () => {
+      if (publicApiBlocked) {
+        setProducts([]);
+        setError(PUBLIC_API_BLOCKED_MESSAGE);
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         setError("");
@@ -210,14 +306,19 @@ const Shop = () => {
         setProducts(enrichedItems.map(mapProduct));
       } catch (apiError) {
         setProducts([]);
-        setError(apiError?.message || "Không tải được danh sách sản phẩm.");
+        if (isUnauthorizedError(apiError)) {
+          setPublicApiBlocked(true);
+          setError(PUBLIC_API_BLOCKED_MESSAGE);
+        } else {
+          setError(apiError?.message || "Khong tai duoc danh sach san pham.");
+        }
       } finally {
         setLoading(false);
       }
     };
 
     loadProducts();
-  }, [appliedKeyword, selectedTypes, categories]);
+  }, [appliedKeyword, selectedTypes, categories, publicApiBlocked]);
 
   const teaTypes = useMemo(() => {
     const categoryTypes = categories.map((item) => item.name).filter(Boolean);
@@ -414,7 +515,7 @@ const Shop = () => {
           {loading ? (
             <div className="py-20 text-center text-gray-500 font-bold">Đang tải sản phẩm...</div>
           ) : error ? (
-            <div className="py-20 text-center text-red-500 font-bold">{error}</div>
+            <div className="py-20 text-center text-amber-600 font-bold">{error}</div>
           ) : (
             <ProductGrid displayedProducts={displayedProducts} />
           )}

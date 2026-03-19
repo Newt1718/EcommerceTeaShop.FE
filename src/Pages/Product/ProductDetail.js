@@ -18,8 +18,76 @@ const FALLBACK_IMAGE =
 
 const formatVnd = (value) => `${Number(value || 0).toLocaleString("vi-VN")}đ`;
 
+function extractImageUrl(image) {
+  if (!image) {
+    return null;
+  }
+
+  if (typeof image === "string") {
+    return image;
+  }
+
+  if (typeof image !== "object") {
+    return null;
+  }
+
+  return (
+    image.imageUrl ||
+    image.url ||
+    image.path ||
+    image.src ||
+    image.thumbnail ||
+    image.thumbnailUrl ||
+    null
+  );
+}
+
+function getProductImages(item) {
+  const directCandidates = [
+    item?.imageUrl,
+    item?.thumbnail,
+    item?.thumbnailUrl,
+    item?.coverImage,
+    item?.mainImage,
+    item?.image,
+  ];
+
+  const direct = directCandidates.find((value) => Boolean(value));
+
+  const arraySources = [item?.images, item?.productImages, item?.imageResponses];
+  const mapped = [];
+
+  for (const source of arraySources) {
+    if (!Array.isArray(source)) {
+      continue;
+    }
+
+    const main = source.find((image) =>
+      Boolean(image?.isMain || image?.isPrimary || image?.isDefault || image?.isMainImage),
+    );
+    const mainUrl = extractImageUrl(main);
+    if (mainUrl) {
+      mapped.push(mainUrl);
+    }
+
+    source.forEach((image) => {
+      const url = extractImageUrl(image);
+      if (url) {
+        mapped.push(url);
+      }
+    });
+  }
+
+  if (direct) {
+    mapped.unshift(direct);
+  }
+
+  const unique = Array.from(new Set(mapped.filter(Boolean)));
+  return unique;
+}
+
 function normalizeProduct(item) {
-  const images = Array.isArray(item.images) ? item.images : [];
+  const images = getProductImages(item);
   const mainImage = images[0] || FALLBACK_IMAGE;
   const variants = Array.isArray(item.variants) ? item.variants : [];
   const mappedVariants = variants
