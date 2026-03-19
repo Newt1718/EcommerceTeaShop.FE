@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { logout } from "../../redux/authSlice/authSlice";
+import { clearCart } from "../../redux/cartSlice/cartSlice";
 import { logoutApi } from "../../services/authApi";
 
 const CustomerNavbar = () => {
@@ -35,6 +36,7 @@ const CustomerNavbar = () => {
       logoutApi({ accessToken, refreshToken }).catch(() => {});
     }
 
+    dispatch(clearCart());
     dispatch(logout());
     setIsProfileOpen(false);
     navigate("/");
