@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import {
+  approveAdminUserReviewApi,
   blockAdminUserApi,
   getAdminUserDetailApi,
   getAdminUserReviewsApi,
@@ -8,6 +9,7 @@ import {
   getAdminUsersApi,
   unblockAdminUserApi,
 } from '../../../services/adminUserApi';
+import { getAdminOrdersApi } from '../../../services/adminOrderApi';
 
 const formatVnd = (value) => `${new Intl.NumberFormat('vi-VN').format(Number(value || 0))} đ`;
 
@@ -39,6 +41,9 @@ const PAGE_SIZE = 10;
 
 const normalizeReviewStatus = (status) => {
   const normalized = String(status || '').toLowerCase();
+  if (normalized.includes('pending') || normalized.includes('cho')) {
+    return 'Chờ duyệt';
+  }
   if (normalized.includes('approve') || normalized.includes('duyet')) {
     return 'Đã duyệt';
   }
@@ -47,6 +52,8 @@ const normalizeReviewStatus = (status) => {
   }
   return 'Chờ duyệt';
 };
+
+const isPendingReviewStatus = (status) => normalizeReviewStatus(status) === 'Chờ duyệt';
 
 const Customers = () => {
   const [activeTab, setActiveTab] = useState(USERS_TAB);
@@ -69,9 +76,11 @@ const Customers = () => {
     totalPages: 0,
   });
   const [loadingUsers, setLoadingUsers] = useState(true);
+  const [loadingPaidLifetime, setLoadingPaidLifetime] = useState(false);
   const [loadingCustomerDetail, setLoadingCustomerDetail] = useState(false);
   const [userActionLoadingId, setUserActionLoadingId] = useState('');
   const [userError, setUserError] = useState('');
+  const [paidLifetimeByEmail, setPaidLifetimeByEmail] = useState({});
 
   const [reviews, setReviews] = useState([]);
   const [reviewsPaging, setReviewsPaging] = useState({
@@ -82,6 +91,7 @@ const Customers = () => {
   });
   const [loadingReviews, setLoadingReviews] = useState(false);
   const [reviewError, setReviewError] = useState('');
+  const [reviewActionLoadingId, setReviewActionLoadingId] = useState('');
 
   const loadUsers = async (pageNumber = 1) => {
     try {
@@ -111,6 +121,56 @@ const Customers = () => {
       setUserError(error?.message || 'Không tải được danh sách người dùng.');
     } finally {
       setLoadingUsers(false);
+    }
+  };
+
+  const loadPaidLifetimeValues = async () => {
+    try {
+      setLoadingPaidLifetime(true);
+
+      const firstResponse = await getAdminOrdersApi({
+        sort: 'newest',
+        type: 'all',
+        pageNumber: 1,
+        pageSize: 100,
+      });
+
+      const firstData = firstResponse?.data || {};
+      const totalPages = Math.max(Number(firstData?.totalPages || 1), 1);
+      const collectedItems = Array.isArray(firstData?.items) ? [...firstData.items] : [];
+
+      for (let page = 2; page <= totalPages; page += 1) {
+        const response = await getAdminOrdersApi({
+          sort: 'newest',
+          type: 'all',
+          pageNumber: page,
+          pageSize: 100,
+        });
+
+        const items = Array.isArray(response?.data?.items) ? response.data.items : [];
+        collectedItems.push(...items);
+      }
+
+      const paidMap = {};
+      collectedItems.forEach((order) => {
+        const status = String(order?.status || '').toLowerCase();
+        if (status !== 'paid') {
+          return;
+        }
+
+        const emailKey = String(order?.email || '').trim().toLowerCase();
+        if (!emailKey) {
+          return;
+        }
+
+        paidMap[emailKey] = Number(paidMap[emailKey] || 0) + Number(order?.totalPrice || 0);
+      });
+
+      setPaidLifetimeByEmail(paidMap);
+    } catch (error) {
+      toast.error(error?.message || 'Không tải được dữ liệu chi tiêu đơn Paid.');
+    } finally {
+      setLoadingPaidLifetime(false);
     }
   };
 
@@ -151,11 +211,14 @@ const Customers = () => {
 
       const mapped = (pagination?.items || []).map((item, index) => ({
         id: item?.id || item?.reviewId || `review-${pageNumber}-${index}`,
+        reviewId: item?.reviewId || item?.id || '',
         product: item?.productName || item?.product || item?.productTitle || 'Sản phẩm',
         customer: item?.customerName || item?.customer || item?.userName || item?.email || 'Người dùng',
-        rating: Number(item?.rating || 0),
+        rating: Number(item?.star ?? item?.rating ?? 0),
         text: item?.comment || item?.content || item?.text || '',
         status: normalizeReviewStatus(item?.status),
+        rawStatus: item?.status || '',
+        createdAt: item?.createdAt || null,
       }));
 
       setReviews(mapped);
@@ -169,7 +232,20 @@ const Customers = () => {
   useEffect(() => {
     loadStats();
     loadUsers(1);
+    loadPaidLifetimeValues();
   }, []);
+
+  useEffect(() => {
+    setUsers((prev) =>
+      prev.map((item) => {
+        const emailKey = String(item?.email || '').trim().toLowerCase();
+        return {
+          ...item,
+          lifetimeValue: Number(paidLifetimeByEmail[emailKey] || 0),
+        };
+      }),
+    );
+  }, [paidLifetimeByEmail]);
 
   useEffect(() => {
     if (activeTab === REVIEWS_TAB) {
@@ -320,6 +396,26 @@ const Customers = () => {
     }
   };
 
+  const handleApproveReview = async (review) => {
+    if (!review?.reviewId) {
+      toast.error('Không tìm thấy mã đánh giá để duyệt.');
+      return;
+    }
+
+    try {
+      setReviewActionLoadingId(review.reviewId);
+      const response = await approveAdminUserReviewApi(review.reviewId);
+      toast.success(response?.message || 'Đã duyệt đánh giá.');
+      setSelectedReview(null);
+      await loadReviews(reviewsPaging.pageNumber);
+      loadStats();
+    } catch (error) {
+      toast.error(error?.message || 'Không thể duyệt đánh giá.');
+    } finally {
+      setReviewActionLoadingId('');
+    }
+  };
+
   return (
     <div className="flex-1 overflow-y-scroll p-4 md:p-8 bg-gray-50 text-slate-900 min-h-screen relative">
       
@@ -409,6 +505,9 @@ const Customers = () => {
                 <div>
                   <p className="text-sm font-bold text-slate-900">{selectedReview.product}</p>
                   <p className="text-xs text-slate-500">Bởi {selectedReview.customer}</p>
+                  {selectedReview.createdAt && (
+                    <p className="text-xs text-slate-400 mt-1">{new Date(selectedReview.createdAt).toLocaleString('vi-VN')}</p>
+                  )}
                 </div>
                 <div className="flex text-yellow-400">
                   {[...Array(5)].map((_, i) => (
@@ -419,44 +518,20 @@ const Customers = () => {
               <p className="text-sm text-slate-700 italic">"{selectedReview.text}"</p>
             </div>
 
-            <div className="space-y-4 mb-6">
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Phản hồi chính thức</label>
-                <textarea 
-                  className="w-full rounded-lg border-slate-200 bg-slate-50 text-slate-900 focus:border-blue-500 focus:ring-blue-500 sm:text-sm resize-none" 
-                  rows="3" 
-                  placeholder="Viết phản hồi công khai cho khách hàng..."
-                ></textarea>
-              </div>
-            </div>
-
             <div className="flex gap-3">
-              <button 
-                onClick={() => {
-                  alert("Đã gắn cờ xóa đánh giá.");
-                  setSelectedReview(null);
-                }} 
-                className="px-4 py-2.5 rounded-lg bg-red-50 text-red-600 font-bold text-sm hover:bg-red-100 transition-colors"
+              <button
+                onClick={() => setSelectedReview(null)}
+                className="flex-1 py-2.5 rounded-lg bg-slate-100 text-slate-600 font-bold text-sm hover:bg-slate-200 transition-colors"
               >
-                Gắn cờ
+                Đóng
               </button>
-              <div className="flex-1 flex gap-3">
-                <button 
-                  onClick={() => setSelectedReview(null)} 
-                  className="flex-1 py-2.5 rounded-lg bg-slate-100 text-slate-600 font-bold text-sm hover:bg-slate-200 transition-colors"
-                >
-                  Hủy
-                </button>
-                <button 
-                  onClick={() => {
-                    alert("Đang mô phỏng duyệt đánh giá và đăng phản hồi...");
-                    setSelectedReview(null);
-                  }} 
-                  className="flex-1 py-2.5 rounded-lg bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 transition-colors"
-                >
-                  Duyệt & phản hồi
-                </button>
-              </div>
+              <button
+                onClick={() => handleApproveReview(selectedReview)}
+                disabled={!isPendingReviewStatus(selectedReview.rawStatus) || reviewActionLoadingId === selectedReview.reviewId}
+                className="flex-1 py-2.5 rounded-lg bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 transition-colors disabled:opacity-60"
+              >
+                {reviewActionLoadingId === selectedReview.reviewId ? 'Đang duyệt...' : 'Duyệt đánh giá'}
+              </button>
             </div>
           </div>
         </div>
@@ -496,6 +571,12 @@ const Customers = () => {
             <h3 className="text-2xl font-bold text-red-600 mt-2">{userSummary.blockedUsers}</h3>
           </div>
         </div>
+
+        {loadingPaidLifetime && (
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 font-medium">
+            Đang cập nhật Giá trị vòng đời theo đơn Paid...
+          </div>
+        )}
 
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 w-full md:w-auto scrollbar-hide">
@@ -666,12 +747,21 @@ const Customers = () => {
                         </span>
                       </td>
                       <td className="p-4 pr-6 text-right">
-                        <button 
-                          onClick={() => setSelectedReview(review)}
-                          className="text-blue-600 hover:bg-blue-50 transition-colors px-3 py-1.5 rounded-md text-xs font-bold border border-slate-200 hover:border-blue-200"
-                        >
-                          Duyệt
-                        </button>
+                        {review.status === 'Chờ duyệt' ? (
+                          <button
+                            onClick={() => setSelectedReview(review)}
+                            className="text-blue-600 hover:bg-blue-50 transition-colors px-3 py-1.5 rounded-md text-xs font-bold border border-slate-200 hover:border-blue-200"
+                          >
+                            Duyệt
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setSelectedReview(review)}
+                            className="text-slate-600 hover:bg-slate-100 transition-colors px-3 py-1.5 rounded-md text-xs font-bold border border-slate-200"
+                          >
+                            Xem
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}

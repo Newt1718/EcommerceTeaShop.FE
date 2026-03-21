@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import { addAddressApi, getAddressesApi } from "../../services/addressApi";
 import { getCartApi, normalizeCartProducts } from "../../services/cartApi";
 import { checkoutOrderApi } from "../../services/orderApi";
-import { setCartProducts } from "../../redux/cartSlice/cartSlice";
+import { clearCart, setCartProducts } from "../../redux/cartSlice/cartSlice";
 
 const formatVnd = (value) => `${Number(value || 0).toLocaleString("vi-VN")}đ`;
 
@@ -21,6 +21,8 @@ const flattenCartItems = (products) =>
   );
 
 const Checkout = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { isAuthenticated, user } = useSelector((state) => state.auth || { isAuthenticated: false, user: null });
   const cartProducts = useSelector((state) => state.cart?.products || []);
   const dispatch = useDispatch();
@@ -75,6 +77,38 @@ const Checkout = () => {
       fetchAddresses();
     }
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search || "");
+    const hasPaymentParams =
+      params.has("vnp_ResponseCode") ||
+      params.has("resultCode") ||
+      params.has("paymentStatus") ||
+      params.has("status");
+
+    if (!hasPaymentParams) {
+      return;
+    }
+
+    const vnpCode = params.get("vnp_ResponseCode");
+    const resultCode = params.get("resultCode");
+    const status = String(params.get("status") || params.get("paymentStatus") || "").toLowerCase();
+
+    const isSuccess =
+      vnpCode === "00" ||
+      resultCode === "0" ||
+      status === "success" ||
+      status === "paid";
+
+    if (isSuccess) {
+      dispatch(clearCart());
+      toast.success("Thanh toán thành công.");
+    } else {
+      toast.error("Thanh toán chưa hoàn tất hoặc đã bị hủy.");
+    }
+
+    navigate("/checkout", { replace: true });
+  }, [dispatch, location.search, navigate]);
 
   const handleAddressInputChange = (event) => {
     const { name, value, type, checked } = event.target;

@@ -2,6 +2,11 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
+  assignAdminAddonsToProductApi,
+  getAdminAddonsApi,
+  getAdminAddonsByProductApi,
+} from '../../../services/adminAddonApi';
+import {
   createAdminProductApi,
   deleteAdminProductImageApi,
   deleteAdminProductApi,
@@ -11,6 +16,8 @@ import {
   updateAdminProductApi,
   updateAdminProductVariantApi,
 } from '../../../services/productApi';
+
+const formatVnd = (value) => `${Number(value || 0).toLocaleString('vi-VN')} đ`;
 
 const ProductEdit = () => {
   const location = useLocation();
@@ -32,6 +39,10 @@ const ProductEdit = () => {
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [availableAddons, setAvailableAddons] = useState([]);
+  const [selectedAddonIds, setSelectedAddonIds] = useState([]);
+  const [loadingAddons, setLoadingAddons] = useState(false);
+  const [assigningAddons, setAssigningAddons] = useState(false);
 
   useEffect(() => {
     const loadCategories = async () => {
@@ -111,6 +122,50 @@ const ProductEdit = () => {
     };
 
     loadProductDetail();
+  }, [isAddMode, productId]);
+
+  useEffect(() => {
+    if (isAddMode || !productId) {
+      return;
+    }
+
+    const loadAddonsForProduct = async () => {
+      try {
+        setLoadingAddons(true);
+
+        const [allAddonsRes, assignedAddonsRes] = await Promise.all([
+          getAdminAddonsApi({ pageNumber: 1, pageSize: 200 }),
+          getAdminAddonsByProductApi(productId),
+        ]);
+
+        const allItems = Array.isArray(allAddonsRes?.data?.items) ? allAddonsRes.data.items : [];
+        const assignedItems = Array.isArray(assignedAddonsRes?.data) ? assignedAddonsRes.data : [];
+
+        const mappedAll = allItems
+          .map((item) => ({
+            id: String(item?.id || ''),
+            name: item?.name || 'Không tên',
+            description: item?.description || '',
+            price: Number(item?.price || 0),
+            isActive: Boolean(item?.isActive),
+          }))
+          .filter((item) => item.id);
+
+        setAvailableAddons(mappedAll);
+
+        const assignedIds = assignedItems
+          .map((item) => String(item?.id || ''))
+          .filter(Boolean);
+
+        setSelectedAddonIds(assignedIds);
+      } catch (error) {
+        toast.error(error?.message || 'Không tải được add-on của sản phẩm.');
+      } finally {
+        setLoadingAddons(false);
+      }
+    };
+
+    loadAddonsForProduct();
   }, [isAddMode, productId]);
 
   const categoryNameById = useMemo(() => {
@@ -296,6 +351,32 @@ const ProductEdit = () => {
       toast.error(error?.message || 'Không thể xóa sản phẩm.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleToggleAddon = (addonId) => {
+    setSelectedAddonIds((prev) => {
+      if (prev.includes(addonId)) {
+        return prev.filter((id) => id !== addonId);
+      }
+
+      return [...prev, addonId];
+    });
+  };
+
+  const handleAssignAddons = async () => {
+    if (isAddMode || !productId) {
+      return;
+    }
+
+    try {
+      setAssigningAddons(true);
+      await assignAdminAddonsToProductApi(productId, selectedAddonIds);
+      toast.success('Gán thiết kế cho sản phẩm thành công.');
+    } catch (error) {
+      toast.error(error?.message || 'Không thể gán thiết kế cho sản phẩm.');
+    } finally {
+      setAssigningAddons(false);
     }
   };
 
@@ -715,6 +796,56 @@ const ProductEdit = () => {
                 )}
               </div>
             </div>
+
+            {!isAddMode && (
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-blue-600">sell</span> Gán thiết kế (Add-on)
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={handleAssignAddons}
+                    disabled={loadingAddons || assigningAddons || submitting}
+                    className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-60"
+                  >
+                    {assigningAddons ? 'Đang gán...' : 'Lưu gán'}
+                  </button>
+                </div>
+
+                {loadingAddons ? (
+                  <p className="text-sm text-slate-500">Đang tải danh sách thiết kế...</p>
+                ) : availableAddons.length === 0 ? (
+                  <p className="text-sm text-slate-500">Chưa có add-on nào trong hệ thống.</p>
+                ) : (
+                  <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                    {availableAddons.map((addon) => {
+                      const checked = selectedAddonIds.includes(addon.id);
+                      return (
+                        <label
+                          key={addon.id}
+                          className="flex items-start gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => handleToggleAddon(addon.id)}
+                            className="mt-1 size-4 rounded border-slate-300"
+                          />
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-slate-900 truncate">{addon.name}</p>
+                            <p className="text-xs text-slate-500">{formatVnd(addon.price)}</p>
+                            {addon.description && (
+                              <p className="text-xs text-slate-500 line-clamp-2">{addon.description}</p>
+                            )}
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
 
           </div>
         </div>

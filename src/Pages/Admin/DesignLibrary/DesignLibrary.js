@@ -1,42 +1,33 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
+import {
+  createAdminAddonApi,
+  deleteAdminAddonApi,
+  getAdminAddonsApi,
+  updateAdminAddonApi,
+} from "../../../services/adminAddonApi";
 
 const formatVnd = (value) => `${new Intl.NumberFormat("vi-VN").format(Number(value || 0))} đ`;
 
-const createLocalId = () => `addon-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+const getImageNameFromUrl = (imageUrl) => {
+  if (!imageUrl) {
+    return "";
+  }
 
-const addonSeed = [
-  {
-    id: "addon-seed-01",
-    name: "Thiết kế nhãn riêng",
-    description: "Thiết kế nhãn theo màu nhận diện thương hiệu của khách hàng.",
-    price: 20000,
-    imageUrl:
-      "https://images.unsplash.com/photo-1473186578172-c141e6798cf4?auto=format&fit=crop&w=600&q=80",
-    imageName: "label-design.jpg",
-    createdAt: "2026-03-19T09:00:00.000Z",
-  },
-  {
-    id: "addon-seed-02",
-    name: "Thiệp cảm ơn",
-    description: "In thiệp cảm ơn ngắn kèm đơn hàng tùy chỉnh.",
-    price: 10000,
-    imageUrl:
-      "https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=600&q=80",
-    imageName: "thankyou-card.jpg",
-    createdAt: "2026-03-19T09:05:00.000Z",
-  },
-  {
-    id: "addon-seed-03",
-    name: "Hộp quà nâng cấp",
-    description: "Đóng gói hộp quà cao cấp cho dịp tặng.",
-    price: 35000,
-    imageUrl:
-      "https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?auto=format&fit=crop&w=600&q=80",
-    imageName: "gift-box.jpg",
-    createdAt: "2026-03-19T09:10:00.000Z",
-  },
-];
+  const segments = String(imageUrl).split("/");
+  return segments[segments.length - 1] || "";
+};
+
+const mapAddonFromApi = (addon) => ({
+  id: addon?.id || "",
+  name: addon?.name || "",
+  description: addon?.description || "",
+  price: Number(addon?.price || 0),
+  imageUrl: addon?.imageUrl || "",
+  imageName: getImageNameFromUrl(addon?.imageUrl),
+  isActive: Boolean(addon?.isActive),
+  createdAt: addon?.createdAt || "",
+});
 
 const emptyForm = {
   name: "",
@@ -48,9 +39,12 @@ const emptyForm = {
 };
 
 const DesignLibrary = () => {
-  const [addons, setAddons] = useState(addonSeed);
+  const [addons, setAddons] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOption, setSortOption] = useState("Mới nhất");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAddon, setEditingAddon] = useState(null);
@@ -58,6 +52,29 @@ const DesignLibrary = () => {
 
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState(null);
+
+  const loadAddons = async () => {
+    setIsLoading(true);
+
+    try {
+      const response = await getAdminAddonsApi({
+        pageNumber: 1,
+        pageSize: 200,
+      });
+
+      const apiItems = Array.isArray(response?.data?.items) ? response.data.items : [];
+      setAddons(apiItems.map(mapAddonFromApi));
+    } catch (error) {
+      toast.error(error?.message || "Không thể tải danh sách add-on.");
+      setAddons([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAddons();
+  }, []);
 
   const resetForm = () => {
     if (formData.imageUrl && formData.imageUrl.startsWith("blob:")) {
@@ -118,7 +135,11 @@ const DesignLibrary = () => {
     }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (isSubmitting) {
+      return;
+    }
+
     const name = formData.name.trim();
     const description = formData.description.trim();
     const price = Number(formData.price);
@@ -138,49 +159,59 @@ const DesignLibrary = () => {
       return;
     }
 
-    const payload = {
-      name,
-      description,
-      price,
-      imageUrl: formData.imageUrl || "",
-      imageName: formData.imageName || "",
-    };
+    setIsSubmitting(true);
 
-    if (editingAddon?.id) {
-      setAddons((prev) =>
-        prev.map((item) =>
-          item.id === editingAddon.id
-            ? {
-                ...item,
-                ...payload,
-              }
-            : item,
-        ),
-      );
-      toast.success("Cập nhật thành công.");
-    } else {
-      setAddons((prev) => [
-        {
-          id: createLocalId(),
-          ...payload,
-          createdAt: new Date().toISOString(),
-        },
-        ...prev,
-      ]);
-      toast.success("Tạo add-on thành công.");
+    try {
+      if (editingAddon?.id) {
+        await updateAdminAddonApi({
+          addonId: editingAddon.id,
+          name,
+          description,
+          price,
+          imageFile: formData.imageFile,
+          isActive: Boolean(editingAddon?.isActive ?? true),
+        });
+        toast.success("Cập nhật thành công.");
+      } else {
+        await createAdminAddonApi({
+          name,
+          description,
+          price,
+          imageFile: formData.imageFile,
+        });
+        toast.success("Tạo add-on thành công.");
+      }
+
+      await loadAddons();
+      closeModal();
+    } catch (error) {
+      toast.error(error?.message || "Không thể lưu add-on.");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    closeModal();
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
+    if (isDeleting) {
+      return;
+    }
+
     if (!pendingDelete?.id) {
       return;
     }
 
-    setAddons((prev) => prev.filter((item) => item.id !== pendingDelete.id));
-    toast.success("Xóa add-on thành công.");
-    closeDeleteModal();
+    setIsDeleting(true);
+
+    try {
+      await deleteAdminAddonApi(pendingDelete.id);
+      toast.success("Xóa add-on thành công.");
+      await loadAddons();
+      closeDeleteModal();
+    } catch (error) {
+      toast.error(error?.message || "Không thể xóa add-on.");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const filteredAddons = useMemo(() => {
@@ -323,9 +354,10 @@ const DesignLibrary = () => {
               </button>
               <button
                 onClick={handleSubmit}
+                disabled={isSubmitting}
                 className="flex-1 rounded-lg bg-blue-600 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-700"
               >
-                Lưu dữ liệu
+                {isSubmitting ? "Đang lưu..." : "Lưu dữ liệu"}
               </button>
             </div>
           </div>
@@ -349,9 +381,10 @@ const DesignLibrary = () => {
               </button>
               <button
                 onClick={handleDelete}
+                disabled={isDeleting}
                 className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-bold text-white transition-colors hover:bg-red-700"
               >
-                Xóa
+                {isDeleting ? "Đang xóa..." : "Xóa"}
               </button>
             </div>
           </div>
@@ -430,7 +463,13 @@ const DesignLibrary = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {displayedAddons.length > 0 ? (
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan="6" className="p-8 text-center text-sm font-medium text-slate-500">
+                        Đang tải dữ liệu add-on...
+                      </td>
+                    </tr>
+                  ) : displayedAddons.length > 0 ? (
                     displayedAddons.map((addon) => (
                       <tr key={addon.id} className="transition-colors hover:bg-slate-50">
                         <td className="p-4 pl-6 text-sm font-bold text-slate-900">{addon.name}</td>

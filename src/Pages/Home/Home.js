@@ -1,17 +1,101 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import HeroSlider from "../../Components/SlideBanner/HeroSlider";
-import { getProductsApi } from "../../services/productApi";
+import { getCategoriesApi, getProductsApi } from "../../services/productApi";
+
+const CATEGORIES_PER_PAGE = 4;
+
+function extractProductImage(item) {
+  const direct =
+    item?.imageUrl ||
+    item?.thumbnail ||
+    item?.thumbnailUrl ||
+    item?.coverImage ||
+    item?.mainImage ||
+    item?.image ||
+    null;
+
+  if (direct) {
+    return direct;
+  }
+
+  const imageLists = [item?.images, item?.productImages, item?.imageResponses];
+  for (const list of imageLists) {
+    if (!Array.isArray(list)) {
+      continue;
+    }
+
+    const preferred = list.find((img) => Boolean(img?.isMain || img?.isPrimary || img?.isDefault));
+    const fromPreferred = preferred?.imageUrl || preferred?.url || preferred?.path || preferred?.src;
+    if (fromPreferred) {
+      return fromPreferred;
+    }
+
+    const first = list[0];
+    const fromFirst = first?.imageUrl || first?.url || first?.path || first?.src;
+    if (fromFirst) {
+      return fromFirst;
+    }
+  }
+
+  return null;
+}
+
+function getPurchaseCount(item) {
+  const candidates = [
+    item?.soldCount,
+    item?.soldQuantity,
+    item?.totalSold,
+    item?.purchaseCount,
+    item?.orderCount,
+    item?.totalOrders,
+  ];
+
+  for (const value of candidates) {
+    const converted = Number(value);
+    if (Number.isFinite(converted) && converted >= 0) {
+      return converted;
+    }
+  }
+
+  return 0;
+}
+
+function extractCategoryImage(item) {
+  return (
+    item?.imageUrl ||
+    item?.image ||
+    item?.thumbnail ||
+    item?.coverImage ||
+    null
+  );
+}
+
+function mapCategoryCard(item) {
+  const id = item?.categoryId || item?.id || "";
+  const name = item?.name || "Danh mục";
+  const imageUrl = extractCategoryImage(item);
+
+  return {
+    id: String(id || name),
+    name,
+    imageUrl,
+    hasImage: Boolean(imageUrl),
+  };
+}
 
 function mapFavoriteProduct(item) {
+  const purchaseCount = getPurchaseCount(item);
+
   return {
-    id: item?.id,
+    id: item?.productId || item?.id,
     name: item?.name || "Sản phẩm",
     price: Number(item?.price || 0),
     desc: item?.origin || item?.categoryName || "Đang cập nhật",
-    tag: item?.featured ? "BÁN CHẠY" : "",
+    tag: purchaseCount > 0 ? `ĐÃ MUA ${purchaseCount}` : "BÁN CHẠY",
+    purchaseCount,
     img:
-      item?.imageUrl ||
+      extractProductImage(item) ||
       "https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=900&q=80",
   };
 }
@@ -23,29 +107,9 @@ function formatCurrency(value) {
 const Home = () => {
   const [favorites, setFavorites] = useState([]);
   const [favoritesLoading, setFavoritesLoading] = useState(true);
-
-  const categories = [
-    {
-      key: "green",
-      name: "Trà xanh",
-      img: "https://lh3.googleusercontent.com/aida-public/AB6AXuDNRoGoGQkdo5QM9Vve4ZOB1feIFhttSdYnDBa9PuEYtJOjiasM4eTnJYWaEb5RLoTpivN0JuFDNFb_N2rEzw-5Fu14CeggbygWEfzvK1nP1XpXexZiBpxPaU2J83GPuONIwUIDQ_rBvPw-QAqWmfd4-4I4tdqhOc1d0gfW6JlawhN9PAZECARqQ9wmwYDoY419n8ZHl0HaWNGlYu4saIZEy9RPltdbopNxyBaQdj9nW-YZ8voUXpr0O8Gb2usCmX8F_9Er3zNpL-1O",
-    },
-    {
-      key: "fruit",
-      name: "Trà trái cây",
-      img: "https://lh3.googleusercontent.com/aida-public/AB6AXuAkf-g9s9uMf9fvsyf8HLC1FW5vk1LfrynxGZYHFHGQeFRfrxCfOO92uJZloNcIwZlmUJ7OXJcaM-IP5mjnn55YKJP_sQae2GuG0rmVWpcF9vkvUweqHrJZBMYs8P0ToVRdA8luRfeFurQXm2Cl96nj_ugGkyPP-9lqZNf9qafDdAzmnbjZiDbR3Xc3dDQ6x3nNtP_mIdngqgEsUZ7mw2MnMGaYgde2tgOJNX78Gvj67RpBOOE-dZWFxx4g79sz8fDpftsI9_b-q89V",
-    },
-    {
-      key: "herbal",
-      name: "Trà thảo mộc và hoa",
-      img: "https://lh3.googleusercontent.com/aida-public/AB6AXuCEGJSAQyNEBumm6px14DPffIVc_3Kfq_fPaSwwRMmHgslFXO6o1i-zlXYk8VkZLOVGBH0pNSskkK2yba2W97zxoOSl_pWGpcf8WHhhAbHjVekwBTUl-Ew0ikknPDmcS7K2BCqPXswPYcKNM3ZLSmutxPEzukUuSUERP7i73W5JXkCn8d-HkLE8T-UUWvaJTQobyYhB6kTi2UTqzkDh3VLsAUPuKB5t8lU--loCpz_wBqP92pxqmKFDhR2LABaZVMSNRsRb5r3hBcnl",
-    },
-    {
-      key: "oolong",
-      name: "Trà Oolong",
-      img: "https://lh3.googleusercontent.com/aida-public/AB6AXuCGmX8G7ewmtAniJ0-9cI-yiKpCpOEhJJWBluWUzMo6K0YsSUlr0z5xB5gUIPwdvSoVZQhez9LAvbJGJM7zb7M-c1U8XLsE-P_7taBayqRFrsBL-FVytZ00Jz0_5UVMbWsMJIBFMXQWnRz41QJ7-O4sblWchYdVGomgx5oknDC1dnE79fNu3HB3ODDuVWgzsDn3-7KbiaZGN1zj-DpIbmDTKJljomALGrKPHuf_R9pyhGg1WecTsElO5XVSoss6V6VcHjzZ1Npa9L-1",
-    },
-  ];
+  const [categories, setCategories] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [categoryPage, setCategoryPage] = useState(1);
 
   useEffect(() => {
     let mounted = true;
@@ -53,9 +117,24 @@ const Home = () => {
     async function loadFavorites() {
       setFavoritesLoading(true);
       try {
-        const response = await getProductsApi({ pageNumber: 1, pageSize: 8 });
-        const list = Array.isArray(response?.data) ? response.data : [];
-        const mapped = list.map(mapFavoriteProduct).slice(0, 4);
+        const response = await getProductsApi({ pageNumber: 1, pageSize: 100 });
+        const list = Array.isArray(response?.data?.items)
+          ? response.data.items
+          : Array.isArray(response?.data)
+            ? response.data
+            : [];
+
+        const mapped = list
+          .map(mapFavoriteProduct)
+          .filter((item) => item.id)
+          .sort((a, b) => {
+            if (b.purchaseCount !== a.purchaseCount) {
+              return b.purchaseCount - a.purchaseCount;
+            }
+            return Number(b.price || 0) - Number(a.price || 0);
+          })
+          .slice(0, 4);
+
         if (mounted) {
           setFavorites(mapped);
         }
@@ -76,6 +155,60 @@ const Home = () => {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadCategories() {
+      setCategoriesLoading(true);
+      try {
+        const response = await getCategoriesApi({ pageNumber: 1, pageSize: 20 });
+        const apiItems = response?.data?.items || [];
+        const mapped = apiItems.map(mapCategoryCard).filter((item) => item.id && item.name);
+
+        if (mounted) {
+          setCategories(mapped);
+          setCategoryPage(1);
+        }
+      } catch (error) {
+        if (mounted) {
+          setCategories([]);
+          setCategoryPage(1);
+        }
+      } finally {
+        if (mounted) {
+          setCategoriesLoading(false);
+        }
+      }
+    }
+
+    loadCategories();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const categoryCards = useMemo(() => {
+    if (categories.length > 0) {
+      return categories;
+    }
+
+    return Array.from({ length: 4 }).map((_, index) => ({
+      id: `category-placeholder-${index}`,
+      name: categoriesLoading ? "Đang tải..." : "Coming soon",
+      imageUrl: null,
+      hasImage: false,
+      isPlaceholder: true,
+    }));
+  }, [categories, categoriesLoading]);
+
+  const categoryPageCount = Math.max(1, Math.ceil(categoryCards.length / CATEGORIES_PER_PAGE));
+  const currentCategoryPage = Math.min(categoryPage, categoryPageCount);
+  const pagedCategoryCards = useMemo(() => {
+    const startIndex = (currentCategoryPage - 1) * CATEGORIES_PER_PAGE;
+    return categoryCards.slice(startIndex, startIndex + CATEGORIES_PER_PAGE);
+  }, [categoryCards, currentCategoryPage]);
 
   const favoriteCards = useMemo(() => {
     if (!favoritesLoading && favorites.length > 0) {
@@ -111,17 +244,29 @@ const Home = () => {
           <div className="h-1 w-20 bg-primary rounded-full mt-2"></div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-          {categories.map((cat, i) => (
+          {pagedCategoryCards.map((cat, i) => (
             <Link
-              to={`/shop?categoryKey=${encodeURIComponent(cat.key)}`}
-              key={i}
-              className="group relative overflow-hidden rounded-xl aspect-[4/5] md:aspect-square shadow-md cursor-pointer hover:shadow-xl transition-all duration-300 block"
+              to={cat.isPlaceholder ? "/shop" : `/shop?category=${encodeURIComponent(cat.name)}`}
+              key={cat.id || i}
+              className={`group relative overflow-hidden rounded-xl aspect-[4/5] md:aspect-square shadow-md cursor-pointer hover:shadow-xl transition-all duration-300 block ${cat.isPlaceholder ? "pointer-events-none" : ""}`}
             >
-              <div
-                className="absolute inset-0 bg-cover bg-center group-hover:scale-110 transition-transform duration-700"
-                style={{ backgroundImage: `url("${cat.img}")` }}
-              ></div>
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
+              {cat.hasImage ? (
+                <>
+                  <div
+                    className="absolute inset-0 bg-cover bg-center group-hover:scale-110 transition-transform duration-700"
+                    style={{ backgroundImage: `url("${cat.imageUrl}")` }}
+                  ></div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
+                </>
+              ) : (
+                <>
+                  <div className="absolute inset-0 bg-gradient-to-br from-slate-700 via-slate-600 to-slate-500"></div>
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.2),transparent_45%)]"></div>
+                  <div className="absolute top-4 right-4 rounded-full bg-white/20 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
+                    Coming soon
+                  </div>
+                </>
+              )}
               <div className="absolute bottom-0 p-5 w-full flex flex-col gap-1">
                 <p className="text-white text-xl font-bold leading-tight group-hover:text-primary transition-colors">
                   {cat.name}
@@ -130,16 +275,42 @@ const Home = () => {
             </Link>
           ))}
         </div>
+
+        <div className="mt-6 flex items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => setCategoryPage((prev) => Math.max(1, prev - 1))}
+            disabled={currentCategoryPage <= 1}
+            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            <span className="material-symbols-outlined text-base">arrow_back</span>
+            Trang trước
+          </button>
+
+          <span className="text-sm font-medium text-slate-500">
+            Trang {currentCategoryPage}/{categoryPageCount}
+          </span>
+
+          <button
+            type="button"
+            onClick={() => setCategoryPage((prev) => Math.min(categoryPageCount, prev + 1))}
+            disabled={currentCategoryPage >= categoryPageCount}
+            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            Trang sau
+            <span className="material-symbols-outlined text-base">arrow_forward</span>
+          </button>
+        </div>
       </section>
 
       <section className="max-w-[1440px] mx-auto px-4 md:px-10 pb-20">
         <div className="flex justify-between items-end mb-8">
           <div>
             <h2 className="text-2xl md:text-3xl font-bold">
-              Yêu thích trong tuần
+              Trà được mua nhiều nhất
             </h2>
             <p className="text-gray-500 mt-2">
-              Tuyển chọn hoàn hảo cho tách trà lý tưởng.
+              Đồng bộ từ dữ liệu sản phẩm hiện có trên hệ thống.
             </p>
           </div>
           <Link

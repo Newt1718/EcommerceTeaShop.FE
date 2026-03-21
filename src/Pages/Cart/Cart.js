@@ -20,6 +20,14 @@ const formatVnd = (value) => `${Number(value || 0).toLocaleString("vi-VN")}đ`;
 
 const isLocalOnlyDetail = (detail) => !detail?.cartItemId && !detail?.productVariantId;
 
+const isSameDetailLine = (detailA, detailB) => {
+  const sameId = String(detailA?.id || "") === String(detailB?.id || "");
+  const sameAddon = String(detailA?.addonId || "") === String(detailB?.addonId || "");
+  return sameId && sameAddon;
+};
+
+const getItemUnitPrice = (item) => Number(item?.unitPrice || 0) + Number(item?.addonPrice || 0);
+
 const extractLocalOnlyProducts = (products) => {
   const list = Array.isArray(products) ? products : [];
 
@@ -68,7 +76,7 @@ const mergeProductsByDetails = (serverProducts, localProducts) => {
 
     localProduct.productDetails?.forEach((localDetail) => {
       const matchedDetail = existing.productDetails.find(
-        (detail) => detail.id === localDetail.id,
+        (detail) => isSameDetailLine(detail, localDetail),
       );
 
       if (matchedDetail) {
@@ -167,6 +175,7 @@ const Cart = () => {
     try {
       await addCartItemApi({
         productVariantId: item.productVariantId,
+        addonId: item.addonId || null,
         quantity: 1,
       });
       await loadCart();
@@ -197,6 +206,7 @@ const Cart = () => {
       decreaseQuantity({
         productId: item.productId,
         detailId: item.id,
+        addonId: item.addonId || null,
       }),
     );
   };
@@ -216,6 +226,7 @@ const Cart = () => {
       removeItem({
         productId: item.productId,
         detailId: item.id,
+        addonId: item.addonId || null,
       }),
     );
   };
@@ -233,7 +244,7 @@ const Cart = () => {
     ) || [];
 
   const calculatedTotal = flatCartItems.reduce((acc, item) => {
-    return acc + item.unitPrice * item.quantity;
+    return acc + getItemUnitPrice(item) * Number(item.quantity || 0);
   }, 0);
 
   const cartItemCount = flatCartItems.length;
@@ -279,7 +290,7 @@ const Cart = () => {
             ) : (
               flatCartItems.map((item) => (
                 <div
-                  key={item.id}
+                  key={`${item.id}-${item.addonId || "none"}`}
                   className="flex flex-col sm:flex-row gap-6 bg-white p-6 rounded-xl shadow-sm border border-transparent hover:border-[#e7f3e9] transition-all"
                 >
                   <div className="shrink-0">
@@ -304,14 +315,16 @@ const Cart = () => {
                         <p className="text-gray-500 text-sm font-normal mt-1">
                           {item.sizeLabel}
                         </p>
-                        {item.addonName && (
+                        {item.addonId ? (
                           <p className="text-gray-500 text-sm font-normal mt-1">
-                            Add-on: {item.addonName}
+                            Thiet ke: {item.addonName || "Thiet ke da chon"}
                           </p>
+                        ) : (
+                          <p className="text-gray-500 text-sm font-normal mt-1">Khong thiet ke</p>
                         )}
                       </div>
                       <p className="text-[#0d1b10] text-lg font-bold">
-                        {formatVnd(item.unitPrice)}
+                        {formatVnd(getItemUnitPrice(item))}
                       </p>
                     </div>
 

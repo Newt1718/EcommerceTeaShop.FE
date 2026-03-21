@@ -23,7 +23,7 @@ const CustomerFooter = () => {
           </p>
           <div className="flex gap-4 mt-4">
             <Social
-              href="https://www.facebook.com/profile.php?id=61587406985998"
+              href="https://www.facebook.com/profile.php?id=61588492237263"
               icon={() => (
                 <svg
                   xmlns="http://www.w3.org/2000/svg"

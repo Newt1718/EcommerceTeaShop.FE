@@ -3,12 +3,54 @@ import { getStoredTokens, refreshTokenManual } from "./authApi";
 const API_BASE_URL =
   "https://teashop-api-e7bbf0cydwe2c0ay.southeastasia-01.azurewebsites.net/api";
 
+const CART_ADDON_META_KEY = "cartAddonMetaByVariant";
+
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=800&q=80";
 
 function toNumber(value, defaultValue = 0) {
   const converted = Number(value);
   return Number.isFinite(converted) ? converted : defaultValue;
+}
+
+function readAddonMetaMap() {
+  try {
+    const raw = localStorage.getItem(CART_ADDON_META_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function writeAddonMetaMap(nextMap) {
+  try {
+    localStorage.setItem(CART_ADDON_META_KEY, JSON.stringify(nextMap || {}));
+  } catch (error) {
+    // ignore storage failures
+  }
+}
+
+function cacheAddonMetaForVariant({
+  productVariantId,
+  addonId,
+  addonName,
+  addonPrice,
+  unitPrice,
+}) {
+  if (!productVariantId || !addonId) {
+    return;
+  }
+
+  const map = readAddonMetaMap();
+  map[String(productVariantId)] = {
+    addonId: String(addonId),
+    addonName: addonName || null,
+    addonPrice: toNumber(addonPrice, 0),
+    unitPrice: toNumber(unitPrice, 0),
+    updatedAt: Date.now(),
+  };
+  writeAddonMetaMap(map);
 }
 
 function ensureCartAuthenticated() {
@@ -88,6 +130,7 @@ function pickField(obj, keys, defaultValue = null) {
 function normalizeCartItem(rawItem, index) {
   const productInfo = rawItem?.product || {};
   const variantInfo = rawItem?.variant || rawItem?.productVariant || {};
+  const addonInfo = rawItem?.addon || rawItem?.productAddon || rawItem?.design || {};
 
   const productId =
     pickField(rawItem, ["productId", "productID"], null) ||
@@ -100,6 +143,8 @@ function normalizeCartItem(rawItem, index) {
     pickField(variantInfo, ["productVariantId", "variantId", "id"], null) ||
     `variant-${index}`;
 
+  const cachedAddonMeta = readAddonMetaMap()[String(variantId)] || null;
+
   const cartItemId = pickField(rawItem, ["cartItemId"], null);
 
   const quantity = toNumber(
@@ -107,11 +152,45 @@ function normalizeCartItem(rawItem, index) {
     1,
   );
 
-  const unitPrice = toNumber(
+  const baseUnitPrice = toNumber(
     pickField(rawItem, ["unitPrice", "price", "variantPrice"], null) ??
       pickField(variantInfo, ["price", "unitPrice"], null),
     0,
   );
+
+  const addonId =
+    pickField(rawItem, ["addonId", "productAddonId", "designId"], null) ||
+    pickField(addonInfo, ["id", "addonId", "productAddonId"], null) ||
+    cachedAddonMeta?.addonId ||
+    null;
+
+  const addonName =
+    pickField(rawItem, ["addonName", "designName"], null) ||
+    pickField(addonInfo, ["name", "addonName", "designName"], null) ||
+    cachedAddonMeta?.addonName ||
+    null;
+
+  const addonPrice = toNumber(
+    pickField(rawItem, ["addonPrice", "designPrice"], null) ??
+      pickField(addonInfo, ["price", "addonPrice"], null) ??
+      cachedAddonMeta?.addonPrice,
+    0,
+  );
+
+  const explicitLineTotal = toNumber(
+    pickField(rawItem, ["lineTotal", "totalPrice", "amount", "subtotal"], null),
+    Number.NaN,
+  );
+
+  const effectiveUnitPrice =
+    Number.isFinite(explicitLineTotal) && quantity > 0
+      ? explicitLineTotal / quantity
+      : baseUnitPrice + addonPrice;
+
+  const finalUnitPrice =
+    effectiveUnitPrice > 0
+      ? effectiveUnitPrice
+      : toNumber(cachedAddonMeta?.unitPrice, 0);
 
   const weight = pickField(rawItem, ["gram", "weight", "size"], null);
   const sizeUnit = pickField(rawItem, ["sizeLabel", "unit", "weightUnit"], "g");
@@ -138,10 +217,11 @@ function normalizeCartItem(rawItem, index) {
       id: cartItemId || variantId,
       cartItemId,
       productVariantId: variantId,
-      addonId: pickField(rawItem, ["addonId"], null),
-      addonName: pickField(rawItem, ["addonName"], null),
+      addonId,
+      addonName,
+      addonPrice,
       sizeLabel,
-      unitPrice,
+      unitPrice: finalUnitPrice,
       quantity,
     },
   };
@@ -168,9 +248,11 @@ export function normalizeCartProducts(cartData) {
       return;
     }
 
-    const sameDetail = existing.productDetails.find(
-      (detail) => detail.id === normalized.detail.id,
-    );
+    const sameDetail = existing.productDetails.find((detail) => {
+      const sameId = detail.id === normalized.detail.id;
+      const sameAddon = String(detail.addonId || "") === String(normalized.detail.addonId || "");
+      return sameId && sameAddon;
+    });
 
     if (sameDetail) {
       sameDetail.quantity += normalized.detail.quantity;
@@ -189,7 +271,14 @@ export function getCartApi() {
   });
 }
 
-export function addCartItemApi({ productVariantId, addonId, quantity = 1 }) {
+export function addCartItemApi({
+  productVariantId,
+  addonId,
+  addonName,
+  addonPrice,
+  unitPrice,
+  quantity = 1,
+}) {
   ensureCartAuthenticated();
 
   const body = {
@@ -199,6 +288,16 @@ export function addCartItemApi({ productVariantId, addonId, quantity = 1 }) {
 
   if (addonId) {
     body.addonId = addonId;
+    body.productAddonId = addonId;
+    body.designId = addonId;
+
+    cacheAddonMetaForVariant({
+      productVariantId,
+      addonId,
+      addonName,
+      addonPrice,
+      unitPrice,
+    });
   }
 
   return request("/cart/add", {

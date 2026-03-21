@@ -6,6 +6,7 @@ import { changePasswordApi } from '../../services/authApi';
 import { addAddressApi, deleteAddressApi, getAddressesApi } from '../../services/addressApi';
 import { getMyOrdersApi, getOrderByCodeApi } from '../../services/orderApi';
 import { getTransactionsApi } from '../../services/transactionApi';
+import { createRatingApi, getMyRatingProductsApi } from '../../services/ratingApi';
 
 const formatVnd = (value) => `${Number(value || 0).toLocaleString('vi-VN')}đ`;
 
@@ -38,6 +39,12 @@ const mapTransactionStatus = (status) => {
   return { label: status || 'Chưa thanh toán', color: 'text-gray-500' };
 };
 
+const isOrderCompletedForRating = (orderStatus, transactionStatus) => {
+  const orderOk = String(orderStatus || '').toLowerCase() === 'paid';
+  const txOk = String(transactionStatus || '').toLowerCase() === 'success';
+  return orderOk || txOk;
+};
+
 const ProfileOverview = () => {
   const { isAuthenticated, user, accessToken } = useSelector((state) => state.auth || { isAuthenticated: false, user: null, accessToken: null });
   
@@ -50,6 +57,16 @@ const ProfileOverview = () => {
   const [deletingAddressId, setDeletingAddressId] = useState(null);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [submittingRating, setSubmittingRating] = useState(false);
+  const [loadingMyRateableProducts, setLoadingMyRateableProducts] = useState(false);
+  const [activeRatingOrder, setActiveRatingOrder] = useState(null);
+  const [rateableProducts, setRateableProducts] = useState([]);
+  const [ratingForm, setRatingForm] = useState({
+    productId: '',
+    star: 5,
+    comment: '',
+  });
   const [addresses, setAddresses] = useState([]);
   const [orders, setOrders] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -144,6 +161,101 @@ const ProfileOverview = () => {
       ...prev,
       [name]: value,
     }));
+  };
+
+  const closeRatingModal = () => {
+    setShowRatingModal(false);
+    setActiveRatingOrder(null);
+    setRateableProducts([]);
+    setRatingForm({
+      productId: '',
+      star: 5,
+      comment: '',
+    });
+  };
+
+  const openRatingModal = async (order, transaction) => {
+    const completed = isOrderCompletedForRating(order?.status, transaction?.status);
+    if (!completed) {
+      toast.info('Bạn chỉ có thể đánh giá đơn đã thanh toán thành công.');
+      return;
+    }
+
+    try {
+      setLoadingMyRateableProducts(true);
+      const response = await getMyRatingProductsApi();
+      const myProducts = Array.isArray(response?.data) ? response.data : [];
+      const myProductIds = new Set(myProducts.map((item) => item.productId));
+
+      const orderProducts = Array.isArray(order?.items)
+        ? order.items
+            .map((item) => ({
+              productId: item?.productId,
+              productName: item?.productName,
+            }))
+            .filter((item) => item.productId && myProductIds.has(item.productId))
+        : [];
+
+      const uniqueProducts = Array.from(
+        new Map(orderProducts.map((item) => [item.productId, item])).values(),
+      );
+
+      if (uniqueProducts.length === 0) {
+        toast.info('Không có sản phẩm hợp lệ để đánh giá trong đơn này.');
+        return;
+      }
+
+      setActiveRatingOrder(order);
+      setRateableProducts(uniqueProducts);
+      setRatingForm({
+        productId: uniqueProducts[0].productId,
+        star: 5,
+        comment: '',
+      });
+      setShowRatingModal(true);
+    } catch (error) {
+      toast.error(error?.message || 'Không tải được danh sách sản phẩm có thể đánh giá.');
+    } finally {
+      setLoadingMyRateableProducts(false);
+    }
+  };
+
+  const handleRatingInputChange = (event) => {
+    const { name, value } = event.target;
+    setRatingForm((prev) => ({
+      ...prev,
+      [name]: name === 'star' ? Number(value) : value,
+    }));
+  };
+
+  const handleSubmitRating = async (event) => {
+    event.preventDefault();
+
+    if (!ratingForm.productId) {
+      toast.error('Vui lòng chọn sản phẩm cần đánh giá.');
+      return;
+    }
+
+    if (!ratingForm.star || ratingForm.star < 1 || ratingForm.star > 5) {
+      toast.error('Số sao phải từ 1 đến 5.');
+      return;
+    }
+
+    try {
+      setSubmittingRating(true);
+      const response = await createRatingApi({
+        productId: ratingForm.productId,
+        star: ratingForm.star,
+        comment: ratingForm.comment?.trim() || '',
+      });
+
+      toast.success(response?.message || 'Gửi đánh giá thành công.');
+      closeRatingModal();
+    } catch (error) {
+      toast.error(error?.message || 'Gửi đánh giá thất bại.');
+    } finally {
+      setSubmittingRating(false);
+    }
   };
 
   const closePasswordModal = () => {
@@ -327,6 +439,72 @@ const ProfileOverview = () => {
         </div>
       )}
 
+      {showRatingModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="bg-white rounded-3xl p-8 w-full max-w-lg shadow-2xl">
+            <h3 className="text-2xl font-black text-[#0d1b10] mb-2">Đánh giá sản phẩm</h3>
+            <p className="text-sm text-gray-500 mb-6">
+              Đơn #{activeRatingOrder?.orderCode} • Chia sẻ cảm nhận của bạn để giúp người mua khác.
+            </p>
+
+            <form className="space-y-4" onSubmit={handleSubmitRating}>
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 px-1">Sản phẩm</label>
+                <select
+                  name="productId"
+                  value={ratingForm.productId}
+                  onChange={handleRatingInputChange}
+                  className="w-full rounded-xl border border-gray-200 bg-surface-light py-3 px-4 font-semibold text-[#0d1b10] focus:ring-2 focus:ring-primary focus:border-transparent mt-1"
+                >
+                  {rateableProducts.map((item) => (
+                    <option key={item.productId} value={item.productId}>
+                      {item.productName || item.productId}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 px-1">Số sao</label>
+                <select
+                  name="star"
+                  value={ratingForm.star}
+                  onChange={handleRatingInputChange}
+                  className="w-full rounded-xl border border-gray-200 bg-surface-light py-3 px-4 font-semibold text-[#0d1b10] focus:ring-2 focus:ring-primary focus:border-transparent mt-1"
+                >
+                  {[5, 4, 3, 2, 1].map((value) => (
+                    <option key={value} value={value}>
+                      {value} sao
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 px-1">Nhận xét</label>
+                <textarea
+                  name="comment"
+                  rows={4}
+                  value={ratingForm.comment}
+                  onChange={handleRatingInputChange}
+                  placeholder="Viết cảm nhận của bạn về sản phẩm..."
+                  className="w-full rounded-xl border border-gray-200 bg-surface-light py-3 px-4 font-semibold text-[#0d1b10] focus:ring-2 focus:ring-primary focus:border-transparent mt-1 resize-none"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button type="button" onClick={closeRatingModal} className="flex-1 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100 transition-colors" disabled={submittingRating}>
+                  Hủy
+                </button>
+                <button type="submit" className="flex-1 py-3 rounded-xl bg-primary text-[#0d1b10] font-bold hover:bg-primary/90 transition-transform hover:scale-[1.02] shadow-sm disabled:opacity-70" disabled={submittingRating}>
+                  {submittingRating ? 'Đang gửi...' : 'Gửi đánh giá'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <aside className="w-full shrink-0 lg:w-64">
         <nav className="flex flex-col gap-2">
           <button 
@@ -486,6 +664,7 @@ const ProfileOverview = () => {
                 const statusMeta = mapOrderStatus(order?.status);
                 const transaction = transactionsByOrderId.get(order?.id);
                 const txStatusMeta = mapTransactionStatus(transaction?.status);
+                const canRate = isOrderCompletedForRating(order?.status, transaction?.status);
                 const itemSummary = Array.isArray(order?.items) && order.items.length > 0
                   ? `${order.items[0].productName} (${order.items[0].gram}g)`
                   : 'Không có sản phẩm';
@@ -513,7 +692,18 @@ const ProfileOverview = () => {
                   </div>
                   <div className="flex items-center justify-between md:flex-col md:items-end md:justify-center gap-2 border-t md:border-none border-gray-100 pt-4 md:pt-0">
                     <p className="text-lg font-black text-[#0d1b10]">{formatVnd(order?.totalPrice)}</p>
-                    <button onClick={() => handleViewOrder(order?.orderCode)} className="text-xs font-bold text-primary hover:underline">Xem hóa đơn</button>
+                    <div className="flex items-center gap-3">
+                      <button onClick={() => handleViewOrder(order?.orderCode)} className="text-xs font-bold text-primary hover:underline">Xem hóa đơn</button>
+                      {canRate && (
+                        <button
+                          onClick={() => openRatingModal(order, transaction)}
+                          className="text-xs font-bold text-[#0d1b10] border border-primary/30 rounded-lg px-3 py-1.5 hover:bg-primary/10 transition-colors disabled:opacity-60"
+                          disabled={loadingMyRateableProducts}
+                        >
+                          {loadingMyRateableProducts ? 'Đang tải...' : 'Đánh giá sản phẩm'}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               )})}

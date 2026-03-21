@@ -6,6 +6,7 @@ import Reviews from "./Reviews";
 import { useDispatch } from "react-redux";
 import { setCartProducts } from "../../redux/cartSlice/cartSlice.js";
 import { getProductDetailApi, getProductsApi } from "../../services/productApi";
+import { getAddonsByProductApi } from "../../services/addonApi";
 import {
   addCartItemApi,
   getCartApi,
@@ -140,6 +141,16 @@ function normalizeProduct(item) {
   };
 }
 
+function normalizeAddon(addon) {
+  return {
+    id: String(addon?.id || ""),
+    name: addon?.name || "Thiet ke",
+    description: addon?.description || "",
+    imageUrl: addon?.imageUrl || "",
+    price: Number(addon?.price || 0),
+  };
+}
+
 const ProductDetail = () => {
   const { id } = useParams();
   const [allProducts, setAllProducts] = useState([]);
@@ -149,6 +160,10 @@ const ProductDetail = () => {
   const [quantity, setQuantity] = useState(1);
   const [carouselStart, setCarouselStart] = useState(0);
   const [activeTab, setActiveTab] = useState("Description");
+  const [assignedAddons, setAssignedAddons] = useState([]);
+  const [addonMode, setAddonMode] = useState("none");
+  const [selectedAddonId, setSelectedAddonId] = useState("");
+  const [isAddonPopupOpen, setIsAddonPopupOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const pageSize = 4;
@@ -160,9 +175,10 @@ const ProductDetail = () => {
         setLoading(true);
         setError("");
 
-        const [detailResponse, listResponse] = await Promise.all([
+        const [detailResponse, listResponse, addonResponse] = await Promise.all([
           getProductDetailApi(id),
           getProductsApi({ pageNumber: 1, pageSize: 100 }),
+          getAddonsByProductApi(id),
         ]);
 
         const mappedList = (listResponse?.data?.items || []).map(normalizeProduct);
@@ -171,7 +187,14 @@ const ProductDetail = () => {
         const detailData = detailResponse?.data || {};
         const detailProduct = normalizeProduct(detailData);
 
+        const addonItems = Array.isArray(addonResponse?.data) ? addonResponse.data : [];
+        const normalizedAddons = addonItems.map(normalizeAddon).filter((addon) => addon.id);
+
         setProduct(detailProduct);
+        setAssignedAddons(normalizedAddons);
+        setAddonMode("none");
+        setSelectedAddonId("");
+        setIsAddonPopupOpen(false);
         setSelectedDetail(detailProduct.productDetails[0]);
         setSelectedImage(detailProduct.thumbnails[0] || detailProduct.img || FALLBACK_IMAGE);
         setQuantity(1);
@@ -193,6 +216,11 @@ const ProductDetail = () => {
 
   const selectedDetailId = selectedProductDetail?.id;
   const selectedDetailStock = selectedProductDetail?.stockQuantity;
+  const selectedAddon =
+    assignedAddons.find((addon) => addon.id === selectedAddonId) || null;
+  const hasAssignedAddons = assignedAddons.length > 0;
+  const selectedAddonPrice = addonMode === "design" ? Number(selectedAddon?.price || 0) : 0;
+  const finalUnitPrice = Number(selectedProductDetail?.unitPrice || 0) + selectedAddonPrice;
 
   useEffect(() => {
     const maxQuantity = Math.max(1, Number(selectedDetailStock || 1));
@@ -219,10 +247,18 @@ const ProductDetail = () => {
       return;
     }
 
+    if (addonMode === "design" && !selectedAddon?.id) {
+      toast.warning("Vui long chon thiet ke cho san pham.");
+      return;
+    }
+
     try {
       await addCartItemApi({
         productVariantId: selectedProductDetail.productVariantId,
-        addonId: selectedProductDetail.addonId,
+        addonId: addonMode === "design" ? selectedAddon?.id : null,
+        addonName: addonMode === "design" ? selectedAddon?.name : null,
+        addonPrice: addonMode === "design" ? Number(selectedAddon?.price || 0) : 0,
+        unitPrice: finalUnitPrice,
         quantity,
       });
 
@@ -344,7 +380,7 @@ const ProductDetail = () => {
               {product.name}
             </h1>
             <p className="text-2xl font-black text-primary">
-              {formatVnd(selectedProductDetail?.unitPrice)}
+              {formatVnd(finalUnitPrice)}
             </p>
           </div>
 
@@ -378,6 +414,67 @@ const ProductDetail = () => {
             <p className="text-sm text-gray-500 font-medium">
               Ton kho: {Number(selectedProductDetail?.stockQuantity || 0)}
             </p>
+          </div>
+
+          <div className="space-y-3">
+            <label className="text-xs font-black uppercase tracking-widest text-gray-400">
+              Tuy chon thiet ke
+            </label>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setAddonMode("none");
+                  setSelectedAddonId("");
+                  setIsAddonPopupOpen(false);
+                }}
+                className={`px-5 py-2.5 rounded-xl border-2 font-bold transition-all ${
+                  addonMode === "none"
+                    ? "border-primary bg-primary/10 text-[#0d1b10] shadow-sm"
+                    : "border-gray-200 hover:border-primary text-gray-500 hover:text-[#0d1b10]"
+                }`}
+              >
+                Khong thiet ke
+              </button>
+              <button
+                type="button"
+                disabled={!hasAssignedAddons}
+                onClick={() => {
+                  setAddonMode("design");
+                  setIsAddonPopupOpen(true);
+                }}
+                className={`px-5 py-2.5 rounded-xl border-2 font-bold transition-all ${
+                  addonMode === "design"
+                    ? "border-primary bg-primary/10 text-[#0d1b10] shadow-sm"
+                    : "border-gray-200 hover:border-primary text-gray-500 hover:text-[#0d1b10]"
+                } ${!hasAssignedAddons ? "opacity-50 cursor-not-allowed" : ""}`}
+              >
+                Chon thiet ke
+              </button>
+            </div>
+
+            {!hasAssignedAddons && (
+              <p className="text-sm text-gray-500 font-medium">
+                San pham nay chua duoc gan thiet ke nao.
+              </p>
+            )}
+
+            {addonMode === "design" && selectedAddon && (
+              <p className="text-sm text-gray-600 font-medium">
+                Da chon: <span className="font-bold text-[#0d1b10]">{selectedAddon.name}</span> (+{formatVnd(selectedAddon.price)})
+              </p>
+            )}
+
+            {addonMode === "design" && hasAssignedAddons && (
+              <button
+                type="button"
+                onClick={() => setIsAddonPopupOpen(true)}
+                className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:text-primary/80"
+              >
+                <span className="material-symbols-outlined text-[18px]">palette</span>
+                {selectedAddon ? "Doi mau thiet ke" : "Chon mau thiet ke"}
+              </button>
+            )}
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 pt-4">
@@ -521,6 +618,86 @@ const ProductDetail = () => {
           ))}
         </div>
       </div>
+
+      {isAddonPopupOpen && hasAssignedAddons && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
+          <div className="w-full max-w-xl rounded-2xl bg-white shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <h3 className="text-lg font-black text-[#0d1b10]">Chon thiet ke cho san pham</h3>
+              <button
+                type="button"
+                onClick={() => setIsAddonPopupOpen(false)}
+                className="text-slate-500 hover:text-slate-700"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="max-h-[60vh] overflow-y-auto p-5 space-y-3">
+              {assignedAddons.map((addon) => {
+                const isSelected = selectedAddonId === addon.id;
+                return (
+                  <button
+                    key={addon.id}
+                    type="button"
+                    onClick={() => setSelectedAddonId(addon.id)}
+                    className={`w-full text-left rounded-xl border p-3 transition-colors ${
+                      isSelected
+                        ? "border-primary bg-primary/5"
+                        : "border-slate-200 hover:border-primary/40"
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      {addon.imageUrl ? (
+                        <img
+                          src={addon.imageUrl}
+                          alt={addon.name}
+                          className="size-14 rounded-lg object-cover border border-slate-200"
+                        />
+                      ) : (
+                        <div className="size-14 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400">
+                          <span className="material-symbols-outlined">image</span>
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold text-[#0d1b10] truncate">{addon.name}</p>
+                        <p className="text-sm font-bold text-primary">+{formatVnd(addon.price)}</p>
+                        {addon.description && (
+                          <p className="text-xs text-slate-500 line-clamp-2 mt-1">{addon.description}</p>
+                        )}
+                      </div>
+                      <span className={`material-symbols-outlined ${isSelected ? "text-primary" : "text-slate-300"}`}>
+                        check_circle
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="px-5 py-4 border-t border-slate-100 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setIsAddonPopupOpen(false)}
+                className="flex-1 rounded-lg bg-slate-100 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-200"
+              >
+                Dong
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAddonMode("design");
+                  setIsAddonPopupOpen(false);
+                }}
+                disabled={!selectedAddonId}
+                className="flex-1 rounded-lg bg-primary py-2.5 text-sm font-black text-[#0d1b10] hover:bg-primary/90 disabled:opacity-60"
+              >
+                Xac nhan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

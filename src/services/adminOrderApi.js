@@ -10,7 +10,7 @@ async function parseResponse(response) {
   } catch (error) {
     payload = {
       isSucess: false,
-      message: `Không đọc được dữ liệu (HTTP ${response.status}).`,
+      message: `Khong doc duoc du lieu (HTTP ${response.status}).`,
       data: null,
       businessCode: 0,
     };
@@ -69,7 +69,7 @@ async function request(path, options = {}) {
   const payload = await parseResponse(response);
 
   if (!response.ok || !payload?.isSucess) {
-    const error = new Error(payload?.message || "Yêu cầu API thất bại.");
+    const error = new Error(payload?.message || "Yeu cau API that bai.");
     error.payload = payload;
     throw error;
   }
@@ -77,51 +77,32 @@ async function request(path, options = {}) {
   return payload;
 }
 
-export function getAdminUsersApi({ pageNumber = 1, pageSize = 10 } = {}) {
-  return request(`/AdminUser?pageNumber=${pageNumber}&pageSize=${pageSize}`, {
+export function getAdminOrdersApi({
+  sort = "newest",
+  type = "all",
+  pageNumber = 1,
+  pageSize = 10,
+} = {}) {
+  const query = new URLSearchParams({
+    sort,
+    type,
+    pageNumber: String(pageNumber),
+    pageSize: String(pageSize),
+  });
+
+  return request(`/AdminOrder?${query.toString()}`, {
     method: "GET",
   });
 }
 
-export function getAdminUserDetailApi(userId) {
-  return request(`/AdminUser/${userId}`, {
+export function getAdminOrderDetailApi(orderId) {
+  return request(`/AdminOrder/${orderId}`, {
     method: "GET",
   });
 }
 
-export function getAdminUserStatsApi() {
-  return request(`/AdminUser/stats`, {
+export function getAdminOrderStatsApi() {
+  return request(`/AdminOrder/stats`, {
     method: "GET",
   });
-}
-
-export function getAdminUserReviewsApi({ pageNumber = 1, pageSize = 10 } = {}) {
-  return request(`/AdminUser/reviews?pageNumber=${pageNumber}&pageSize=${pageSize}`, {
-    method: "GET",
-  });
-}
-
-export function approveAdminUserReviewApi(reviewId) {
-  return actionWithFallback(`/AdminUser/reviews/approve/${reviewId}`);
-}
-
-async function actionWithFallback(path) {
-  try {
-    return await request(path, { method: "PUT" });
-  } catch (error) {
-    const message = String(error?.message || "");
-    if (!message.includes("405")) {
-      throw error;
-    }
-
-    return request(path, { method: "POST" });
-  }
-}
-
-export function blockAdminUserApi(userId) {
-  return actionWithFallback(`/AdminUser/block/${userId}`);
-}
-
-export function unblockAdminUserApi(userId) {
-  return actionWithFallback(`/AdminUser/unblock/${userId}`);
 }

@@ -121,6 +121,27 @@ export async function getAddonsApi() {
   }
 }
 
+export async function getAddonsByProductApi(productId) {
+  const path = `/Addon/product/${productId}`;
+
+  try {
+    return await request(path, {
+      method: "GET",
+    });
+  } catch (error) {
+    const message = String(error?.message || "").toLowerCase();
+    const shouldRetryAnonymous = message.includes("403") || message.includes("forbidden");
+
+    if (!shouldRetryAnonymous) {
+      throw error;
+    }
+
+    return requestAnonymous(path, {
+      method: "GET",
+    });
+  }
+}
+
 export function createAddonApi({ name, price }) {
   return request("/Addon", {
     method: "POST",

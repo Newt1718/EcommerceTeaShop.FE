@@ -12,6 +12,15 @@ const initialState = {
   totalAmount: 0,
 };
 
+const isSameDetailLine = (detail, payload = {}) => {
+  const sameDetailId = detail?.id === payload?.detailId;
+  const detailAddonId = String(detail?.addonId || "");
+  const payloadAddonId = String(payload?.addonId || "");
+  const sameAddon = detailAddonId === payloadAddonId;
+
+  return sameDetailId && sameAddon;
+};
+
 export const cartSlice = createSlice({
   name: "cart",
   initialState, // Use the merged initialState here
@@ -21,6 +30,7 @@ export const cartSlice = createSlice({
       state.selectedCoupon = {};
       state.totalAmount = 0;
       localStorage.setItem("cartList", JSON.stringify([]));
+      localStorage.removeItem("cartAddonMetaByVariant");
     },
 
     setCartProducts: (state, action) => {
@@ -41,7 +51,9 @@ export const cartSlice = createSlice({
       if (existingProduct) {
         // Fix: Use 'id' to match your ProductDetail model
         const existingDetail = existingProduct.productDetails.find(
-          (d) => d.id === newItem.productDetail.id,
+          (d) =>
+            d.id === newItem.productDetail.id &&
+            String(d.addonId || "") === String(newItem.productDetail.addonId || ""),
         );
 
         if (!existingDetail) {
@@ -70,10 +82,10 @@ export const cartSlice = createSlice({
     },
 
     increaseQuantity: (state, action) => {
-      const { productId, detailId } = action.payload;
+      const { productId } = action.payload;
       const product = state.products.find((p) => p.productId === productId);
       if (product) {
-        const detail = product.productDetails.find((d) => d.id === detailId);
+        const detail = product.productDetails.find((d) => isSameDetailLine(d, action.payload));
         if (detail) {
           detail.quantity += 1;
           state.totalAmount += detail.unitPrice;
@@ -83,10 +95,10 @@ export const cartSlice = createSlice({
     },
 
     decreaseQuantity: (state, action) => {
-      const { productId, detailId } = action.payload;
+      const { productId } = action.payload;
       const product = state.products.find((p) => p.productId === productId);
       if (product) {
-        const detail = product.productDetails.find((d) => d.id === detailId);
+        const detail = product.productDetails.find((d) => isSameDetailLine(d, action.payload));
         if (detail && detail.quantity > 1) {
           detail.quantity -= 1;
           state.totalAmount -= detail.unitPrice;
@@ -94,7 +106,7 @@ export const cartSlice = createSlice({
           // Remove detail if quantity would be 0
           state.totalAmount -= detail.unitPrice;
           product.productDetails = product.productDetails.filter(
-            (d) => d.id !== detailId,
+            (d) => !isSameDetailLine(d, action.payload),
           );
         }
 
@@ -109,14 +121,14 @@ export const cartSlice = createSlice({
     },
 
     removeItem: (state, action) => {
-      const { productId, detailId } = action.payload;
+      const { productId } = action.payload;
       const product = state.products.find((p) => p.productId === productId);
       if (product) {
-        const detail = product.productDetails.find((d) => d.id === detailId);
+        const detail = product.productDetails.find((d) => isSameDetailLine(d, action.payload));
         if (detail) {
           state.totalAmount -= detail.unitPrice * detail.quantity;
           product.productDetails = product.productDetails.filter(
-            (d) => d.id !== detailId,
+            (d) => !isSameDetailLine(d, action.payload),
           );
         }
         if (product.productDetails.length === 0) {
