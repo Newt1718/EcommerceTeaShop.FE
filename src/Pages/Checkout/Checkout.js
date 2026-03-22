@@ -5,9 +5,123 @@ import { toast } from "react-toastify";
 import { addAddressApi, getAddressesApi } from "../../services/addressApi";
 import { getCartApi, normalizeCartProducts } from "../../services/cartApi";
 import { checkoutOrderApi } from "../../services/orderApi";
+import { getProductDetailApi, getProductsApi } from "../../services/productApi";
 import { clearCart, setCartProducts } from "../../redux/cartSlice/cartSlice";
 
 const formatVnd = (value) => `${Number(value || 0).toLocaleString("vi-VN")}đ`;
+const FALLBACK_PRODUCT_IMAGE =
+  "https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=800&q=80";
+
+const getItemUnitPrice = (item) => Number(item?.unitPrice || 0) + Number(item?.addonPrice || 0);
+
+function normalizeText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isUnknownProductId(value) {
+  return String(value || "").startsWith("unknown-product-");
+}
+
+function getVariantId(variant) {
+  return (
+    variant?.productVariantId ||
+    variant?.variantId ||
+    variant?.variantID ||
+    variant?.id ||
+    null
+  );
+}
+
+function getVariantPrice(variant) {
+  return Number(
+    variant?.price ||
+      variant?.unitPrice ||
+      variant?.salePrice ||
+      variant?.basePrice ||
+      0,
+  );
+}
+
+function extractImageUrl(image) {
+  if (!image) {
+    return null;
+  }
+
+  if (typeof image === "string") {
+    return image;
+  }
+
+  if (typeof image !== "object") {
+    return null;
+  }
+
+  return (
+    image.imageUrl ||
+    image.url ||
+    image.path ||
+    image.src ||
+    image.thumbnail ||
+    image.thumbnailUrl ||
+    image.imagePath ||
+    image.filePath ||
+    null
+  );
+}
+
+function extractProductImage(item) {
+  const directCandidates = [
+    item?.imageUrl,
+    item?.thumbnail,
+    item?.thumbnailUrl,
+    item?.coverImage,
+    item?.mainImage,
+    item?.image,
+    item?.imagePath,
+    item?.filePath,
+  ];
+
+  const direct = directCandidates.find((value) => Boolean(value));
+  if (direct) {
+    return direct;
+  }
+
+  const imageLists = [
+    item?.images,
+    item?.productImages,
+    item?.imageResponses,
+    item?.productImageResponses,
+  ];
+
+  for (const list of imageLists) {
+    if (!Array.isArray(list)) {
+      continue;
+    }
+
+    const preferred = list.find((img) =>
+      Boolean(img?.isMain || img?.isPrimary || img?.isDefault || img?.isMainImage),
+    );
+
+    const preferredUrl = extractImageUrl(preferred);
+    if (preferredUrl) {
+      return preferredUrl;
+    }
+
+    for (const image of list) {
+      const url = extractImageUrl(image);
+      if (url) {
+        return url;
+      }
+    }
+  }
+
+  return null;
+}
 
 const flattenCartItems = (products) =>
   (products || []).flatMap(
@@ -16,7 +130,7 @@ const flattenCartItems = (products) =>
         ...detail,
         productId: product.productId,
         name: product.name,
-        img: product.img || "https://via.placeholder.com/150",
+        img: product.img || null,
       })) || [],
   );
 
@@ -77,6 +191,105 @@ const Checkout = () => {
       fetchAddresses();
     }
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    const syncCheckoutCart = async () => {
+      if (!isAuthenticated) {
+        return;
+      }
+
+      try {
+        const cartResponse = await getCartApi();
+        const normalized = normalizeCartProducts(cartResponse?.data);
+
+        let productIdByName = new Map();
+        try {
+          const catalogResponse = await getProductsApi({ pageNumber: 1, pageSize: 200 });
+          const catalogItems = Array.isArray(catalogResponse?.data?.items)
+            ? catalogResponse.data.items
+            : [];
+          productIdByName = new Map(
+            catalogItems
+              .map((item) => [normalizeText(item?.name), item?.productId || item?.id])
+              .filter(([nameKey, id]) => Boolean(nameKey) && Boolean(id)),
+          );
+        } catch (catalogError) {
+          productIdByName = new Map();
+        }
+
+        const hydrated = await Promise.all(
+          normalized.map(async (product) => {
+            const resolvedProductId = isUnknownProductId(product?.productId)
+              ? productIdByName.get(normalizeText(product?.name)) || product?.productId
+              : product?.productId;
+
+            const needsImage = !product?.img;
+            const needsPrice = (product?.productDetails || []).some(
+              (detail) => Number(detail?.unitPrice || 0) <= 0,
+            );
+
+            if ((!needsImage && !needsPrice) || !resolvedProductId || isUnknownProductId(resolvedProductId)) {
+              return product;
+            }
+
+            try {
+              const detailResponse = await getProductDetailApi(resolvedProductId);
+              const detail = detailResponse?.data || {};
+              const detailImage = extractProductImage(detail);
+              const variants = Array.isArray(detail?.variants) ? detail.variants : [];
+
+              const variantPriceMap = new Map(
+                variants
+                  .map((variant) => [String(getVariantId(variant) || ""), getVariantPrice(variant)])
+                  .filter(([id, price]) => Boolean(id) && Number(price) > 0),
+              );
+              const fallbackVariantPrice = Math.min(
+                ...variants
+                  .map((variant) => getVariantPrice(variant))
+                  .filter((price) => Number(price) > 0),
+              );
+
+              const nextDetails = (product?.productDetails || []).map((detailLine) => {
+                if (Number(detailLine?.unitPrice || 0) > 0) {
+                  return detailLine;
+                }
+
+                const detailVariantId = String(
+                  detailLine?.productVariantId || detailLine?.id || "",
+                );
+                const resolvedUnitPrice =
+                  variantPriceMap.get(detailVariantId) ||
+                  (Number.isFinite(fallbackVariantPrice) ? fallbackVariantPrice : 0);
+
+                return {
+                  ...detailLine,
+                  unitPrice: resolvedUnitPrice,
+                };
+              });
+
+              return {
+                ...product,
+                productId: resolvedProductId,
+                img: detailImage || product?.img || null,
+                productDetails: nextDetails,
+              };
+            } catch (detailError) {
+              return {
+                ...product,
+                productId: resolvedProductId,
+              };
+            }
+          }),
+        );
+
+        dispatch(setCartProducts(hydrated));
+      } catch (error) {
+        // Keep current cart state when refresh fails to avoid blocking checkout UI.
+      }
+    };
+
+    syncCheckoutCart();
+  }, [dispatch, isAuthenticated]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search || "");
@@ -160,7 +373,11 @@ const Checkout = () => {
   const orderItems = useMemo(() => flattenCartItems(cartProducts), [cartProducts]);
 
   const subtotal = useMemo(
-    () => orderItems.reduce((sum, item) => sum + Number(item.unitPrice || 0) * Number(item.quantity || 0), 0),
+    () =>
+      orderItems.reduce(
+        (sum, item) => sum + getItemUnitPrice(item) * Number(item.quantity || 0),
+        0,
+      ),
     [orderItems],
   );
 
@@ -459,7 +676,7 @@ const Checkout = () => {
                   </span>
                 </div>
                 <span className="text-sm font-medium text-[#0d1b10]">
-                  $15.00
+                  {formatVnd(15000)}
                 </span>
               </label>
             </div>
@@ -546,12 +763,15 @@ const Checkout = () => {
                   <div key={item.id} className="flex gap-4 items-start">
                     <div className="relative w-16 h-16 rounded-lg bg-white border border-[#e7f3e9] overflow-hidden flex-none">
                       <img
-                        src={item.img}
+                        src={item.img || FALLBACK_PRODUCT_IMAGE}
                         alt={item.name}
                         className="w-full h-full object-cover"
+                        onError={(event) => {
+                          event.currentTarget.src = FALLBACK_PRODUCT_IMAGE;
+                        }}
                       />
                       <span className="absolute -top-2 -right-2 w-5 h-5 bg-gray-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full">
-                        {item.qty}
+                        {item.quantity}
                       </span>
                     </div>
                     <div className="flex-1">
@@ -563,7 +783,7 @@ const Checkout = () => {
                       </p>
                     </div>
                     <div className="text-sm font-bold text-[#0d1b10]">
-                      {formatVnd(item.unitPrice)}
+                      {formatVnd(getItemUnitPrice(item) * Number(item.quantity || 0))}
                     </div>
                   </div>
                 ))}

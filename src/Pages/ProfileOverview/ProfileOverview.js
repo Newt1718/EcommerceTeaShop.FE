@@ -93,6 +93,7 @@ const ProfileOverview = () => {
       const list = Array.isArray(response?.data) ? response.data : [];
       setAddresses(list);
     } catch (error) {
+      setAddresses([]);
       toast.error(error?.message || 'Không tải được danh sách địa chỉ.');
     } finally {
       setLoadingAddresses(false);
@@ -106,6 +107,7 @@ const ProfileOverview = () => {
       const list = Array.isArray(response?.data) ? response.data : [];
       setOrders(list);
     } catch (error) {
+      setOrders([]);
       toast.error(error?.message || 'Không tải được danh sách đơn hàng.');
     } finally {
       setLoadingOrders(false);
@@ -119,6 +121,7 @@ const ProfileOverview = () => {
       const list = Array.isArray(response?.data) ? response.data : [];
       setTransactions(list);
     } catch (error) {
+      setTransactions([]);
       toast.error(error?.message || 'Không tải được lịch sử giao dịch.');
     } finally {
       setLoadingTransactions(false);
@@ -126,12 +129,17 @@ const ProfileOverview = () => {
   };
 
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchAddresses();
-      fetchOrders();
-      fetchTransactions();
+    if (!isAuthenticated || !accessToken) {
+      setAddresses([]);
+      setOrders([]);
+      setTransactions([]);
+      return;
     }
-  }, [isAuthenticated]);
+
+    fetchAddresses();
+    fetchOrders();
+    fetchTransactions();
+  }, [isAuthenticated, accessToken, user?.id, user?.email]);
 
   const transactionsByOrderId = useMemo(() => {
     const map = new Map();

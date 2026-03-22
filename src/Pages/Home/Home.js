@@ -1,9 +1,41 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import HeroSlider from "../../Components/SlideBanner/HeroSlider";
-import { getCategoriesApi, getProductsApi } from "../../services/productApi";
+import {
+  getCategoriesApi,
+  getProductDetailApi,
+  getProductsApi,
+} from "../../services/productApi";
 
 const CATEGORIES_PER_PAGE = 4;
+const FALLBACK_PRODUCT_IMAGE =
+  "https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=900&q=80";
+
+function extractImageUrl(image) {
+  if (!image) {
+    return null;
+  }
+
+  if (typeof image === "string") {
+    return image;
+  }
+
+  if (typeof image !== "object") {
+    return null;
+  }
+
+  return (
+    image.imageUrl ||
+    image.url ||
+    image.path ||
+    image.src ||
+    image.thumbnail ||
+    image.thumbnailUrl ||
+    image.imagePath ||
+    image.filePath ||
+    null
+  );
+}
 
 function extractProductImage(item) {
   const direct =
@@ -13,28 +45,38 @@ function extractProductImage(item) {
     item?.coverImage ||
     item?.mainImage ||
     item?.image ||
+    item?.imagePath ||
+    item?.filePath ||
     null;
 
   if (direct) {
     return direct;
   }
 
-  const imageLists = [item?.images, item?.productImages, item?.imageResponses];
+  const imageLists = [
+    item?.images,
+    item?.productImages,
+    item?.imageResponses,
+    item?.productImageResponses,
+  ];
   for (const list of imageLists) {
     if (!Array.isArray(list)) {
       continue;
     }
 
-    const preferred = list.find((img) => Boolean(img?.isMain || img?.isPrimary || img?.isDefault));
-    const fromPreferred = preferred?.imageUrl || preferred?.url || preferred?.path || preferred?.src;
+    const preferred = list.find((img) =>
+      Boolean(img?.isMain || img?.isPrimary || img?.isDefault || img?.isMainImage),
+    );
+    const fromPreferred = extractImageUrl(preferred);
     if (fromPreferred) {
       return fromPreferred;
     }
 
-    const first = list[0];
-    const fromFirst = first?.imageUrl || first?.url || first?.path || first?.src;
-    if (fromFirst) {
-      return fromFirst;
+    for (const image of list) {
+      const fromList = extractImageUrl(image);
+      if (fromList) {
+        return fromList;
+      }
     }
   }
 
@@ -94,14 +136,12 @@ function mapFavoriteProduct(item) {
     desc: item?.origin || item?.categoryName || "Đang cập nhật",
     tag: purchaseCount > 0 ? `ĐÃ MUA ${purchaseCount}` : "BÁN CHẠY",
     purchaseCount,
-    img:
-      extractProductImage(item) ||
-      "https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=900&q=80",
+    img: extractProductImage(item),
   };
 }
 
 function formatCurrency(value) {
-  return `$${Number(value || 0).toFixed(2)}`;
+  return `${Number(value || 0).toLocaleString("vi-VN")}đ`;
 }
 
 const Home = () => {
@@ -135,8 +175,30 @@ const Home = () => {
           })
           .slice(0, 4);
 
+        const withImage = await Promise.all(
+          mapped.map(async (product) => {
+            if (product.img) {
+              return product;
+            }
+
+            try {
+              const detailResponse = await getProductDetailApi(product.id);
+              const detailImage = extractProductImage(detailResponse?.data);
+              return {
+                ...product,
+                img: detailImage || FALLBACK_PRODUCT_IMAGE,
+              };
+            } catch (detailError) {
+              return {
+                ...product,
+                img: FALLBACK_PRODUCT_IMAGE,
+              };
+            }
+          }),
+        );
+
         if (mounted) {
-          setFavorites(mapped);
+          setFavorites(withImage);
         }
       } catch (error) {
         if (mounted) {

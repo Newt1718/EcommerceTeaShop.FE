@@ -14,9 +14,12 @@ import {
   removeCartItemApi,
   updateCartItemApi,
 } from "../../services/cartApi";
+import { getProductDetailApi, getProductsApi } from "../../services/productApi";
 import { toast } from "react-toastify";
 
 const formatVnd = (value) => `${Number(value || 0).toLocaleString("vi-VN")}đ`;
+const FALLBACK_CART_IMAGE =
+  "https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=800&q=80";
 
 const isLocalOnlyDetail = (detail) => !detail?.cartItemId && !detail?.productVariantId;
 
@@ -27,6 +30,126 @@ const isSameDetailLine = (detailA, detailB) => {
 };
 
 const getItemUnitPrice = (item) => Number(item?.unitPrice || 0) + Number(item?.addonPrice || 0);
+
+function normalizeText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isUnknownProductId(value) {
+  return String(value || "").startsWith("unknown-product-");
+}
+
+function getVariantId(variant) {
+  return (
+    variant?.productVariantId ||
+    variant?.variantId ||
+    variant?.variantID ||
+    variant?.id ||
+    null
+  );
+}
+
+function getVariantPrice(variant) {
+  return Number(
+    variant?.price ||
+      variant?.unitPrice ||
+      variant?.salePrice ||
+      variant?.basePrice ||
+      0,
+  );
+}
+
+function extractImageUrl(image) {
+  if (!image) {
+    return null;
+  }
+
+  if (typeof image === "string") {
+    return image;
+  }
+
+  if (typeof image !== "object") {
+    return null;
+  }
+
+  return (
+    image.imageUrl ||
+    image.url ||
+    image.path ||
+    image.src ||
+    image.thumbnail ||
+    image.thumbnailUrl ||
+    image.imagePath ||
+    image.filePath ||
+    null
+  );
+}
+
+function extractProductImage(item) {
+  const directCandidates = [
+    item?.imageUrl,
+    item?.thumbnail,
+    item?.thumbnailUrl,
+    item?.coverImage,
+    item?.mainImage,
+    item?.image,
+    item?.imagePath,
+    item?.filePath,
+  ];
+
+  const direct = directCandidates.find((value) => Boolean(value));
+  if (direct) {
+    return direct;
+  }
+
+  const imageLists = [
+    item?.images,
+    item?.productImages,
+    item?.imageResponses,
+    item?.productImageResponses,
+  ];
+
+  for (const list of imageLists) {
+    if (!Array.isArray(list)) {
+      continue;
+    }
+
+    const preferred = list.find((img) =>
+      Boolean(img?.isMain || img?.isPrimary || img?.isDefault || img?.isMainImage),
+    );
+    const preferredUrl = extractImageUrl(preferred);
+    if (preferredUrl) {
+      return preferredUrl;
+    }
+
+    for (const image of list) {
+      const url = extractImageUrl(image);
+      if (url) {
+        return url;
+      }
+    }
+  }
+
+  return null;
+}
+
+function shouldReplaceImage(currentImage, nextImage) {
+  if (!nextImage) {
+    return false;
+  }
+
+  if (!currentImage) {
+    return true;
+  }
+
+  return currentImage === FALLBACK_CART_IMAGE;
+}
 
 const extractLocalOnlyProducts = (products) => {
   const list = Array.isArray(products) ? products : [];
@@ -86,7 +209,7 @@ const mergeProductsByDetails = (serverProducts, localProducts) => {
       }
     });
 
-    if (!existing.img && localProduct.img) {
+    if (shouldReplaceImage(existing.img, localProduct.img)) {
       existing.img = localProduct.img;
     }
   });
@@ -117,7 +240,88 @@ const Cart = () => {
         localOnlyProducts,
       );
 
-      dispatch(setCartProducts(mergedProducts));
+      let productIdByName = new Map();
+      try {
+        const catalogResponse = await getProductsApi({ pageNumber: 1, pageSize: 200 });
+        const catalogItems = Array.isArray(catalogResponse?.data?.items)
+          ? catalogResponse.data.items
+          : [];
+        productIdByName = new Map(
+          catalogItems
+            .map((item) => [normalizeText(item?.name), item?.productId || item?.id])
+            .filter(([nameKey, id]) => Boolean(nameKey) && Boolean(id)),
+        );
+      } catch (catalogError) {
+        productIdByName = new Map();
+      }
+
+      const hydratedProducts = await Promise.all(
+        mergedProducts.map(async (product) => {
+          const resolvedProductId = isUnknownProductId(product?.productId)
+            ? productIdByName.get(normalizeText(product?.name)) || product?.productId
+            : product?.productId;
+
+          const needsImage = !product?.img || product.img === FALLBACK_CART_IMAGE;
+          const needsPrice = (product?.productDetails || []).some(
+            (detail) => Number(detail?.unitPrice || 0) <= 0,
+          );
+
+          if ((!needsImage && !needsPrice) || !resolvedProductId || isUnknownProductId(resolvedProductId)) {
+            return product;
+          }
+
+          try {
+            const detailResponse = await getProductDetailApi(resolvedProductId);
+            const detail = detailResponse?.data || {};
+            const detailImage = extractProductImage(detailResponse?.data);
+            const variants = Array.isArray(detail?.variants) ? detail.variants : [];
+
+            const variantPriceMap = new Map(
+              variants
+                .map((variant) => [String(getVariantId(variant) || ""), getVariantPrice(variant)])
+                .filter(([id, price]) => Boolean(id) && Number(price) > 0),
+            );
+            const fallbackVariantPrice = Math.min(
+              ...variants
+                .map((variant) => getVariantPrice(variant))
+                .filter((price) => Number(price) > 0),
+            );
+
+            const nextDetails = (product?.productDetails || []).map((detailLine) => {
+              if (Number(detailLine?.unitPrice || 0) > 0) {
+                return detailLine;
+              }
+
+              const detailVariantId = String(
+                detailLine?.productVariantId || detailLine?.id || "",
+              );
+              const resolvedUnitPrice =
+                variantPriceMap.get(detailVariantId) ||
+                (Number.isFinite(fallbackVariantPrice) ? fallbackVariantPrice : 0);
+
+              return {
+                ...detailLine,
+                unitPrice: resolvedUnitPrice,
+              };
+            });
+
+            return {
+              ...product,
+              productId: resolvedProductId,
+              img: detailImage || product.img || null,
+              productDetails: nextDetails,
+            };
+          } catch (detailError) {
+            return {
+              ...product,
+              productId: resolvedProductId,
+              img: product.img || null,
+            };
+          }
+        }),
+      );
+
+      dispatch(setCartProducts(hydratedProducts));
     } catch (error) {
       const message = error?.message || "Khong tai duoc gio hang.";
       if (message.includes("Giỏ hàng trống")) {

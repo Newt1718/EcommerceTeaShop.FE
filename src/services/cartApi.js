@@ -5,9 +5,6 @@ const API_BASE_URL =
 
 const CART_ADDON_META_KEY = "cartAddonMetaByVariant";
 
-const FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=800&q=80";
-
 function toNumber(value, defaultValue = 0) {
   const converted = Number(value);
   return Number.isFinite(converted) ? converted : defaultValue;
@@ -127,58 +124,197 @@ function pickField(obj, keys, defaultValue = null) {
   return defaultValue;
 }
 
+function pickFromMany(objects, keys, defaultValue = null) {
+  for (const obj of objects) {
+    const value = pickField(obj, keys, null);
+    if (value !== null && value !== undefined) {
+      return value;
+    }
+  }
+  return defaultValue;
+}
+
+function extractImageUrl(image) {
+  if (!image) {
+    return null;
+  }
+
+  if (typeof image === "string") {
+    return image;
+  }
+
+  if (typeof image !== "object") {
+    return null;
+  }
+
+  return (
+    image.imageUrl ||
+    image.url ||
+    image.path ||
+    image.src ||
+    image.thumbnail ||
+    image.thumbnailUrl ||
+    image.imagePath ||
+    image.filePath ||
+    null
+  );
+}
+
+function extractProductImage(data) {
+  const directCandidates = [
+    data?.imageUrl,
+    data?.thumbnail,
+    data?.thumbnailUrl,
+    data?.coverImage,
+    data?.mainImage,
+    data?.image,
+    data?.imagePath,
+    data?.filePath,
+  ];
+
+  const direct = directCandidates.find((value) => Boolean(value));
+  if (direct) {
+    return direct;
+  }
+
+  const imageLists = [
+    data?.images,
+    data?.productImages,
+    data?.imageResponses,
+    data?.productImageResponses,
+  ];
+
+  for (const list of imageLists) {
+    if (!Array.isArray(list)) {
+      continue;
+    }
+
+    const preferred = list.find((img) =>
+      Boolean(img?.isMain || img?.isPrimary || img?.isDefault || img?.isMainImage),
+    );
+
+    const preferredUrl = extractImageUrl(preferred);
+    if (preferredUrl) {
+      return preferredUrl;
+    }
+
+    for (const image of list) {
+      const url = extractImageUrl(image);
+      if (url) {
+        return url;
+      }
+    }
+  }
+
+  return null;
+}
+
 function normalizeCartItem(rawItem, index) {
-  const productInfo = rawItem?.product || {};
-  const variantInfo = rawItem?.variant || rawItem?.productVariant || {};
-  const addonInfo = rawItem?.addon || rawItem?.productAddon || rawItem?.design || {};
+  const productCandidates = [
+    rawItem?.product,
+    rawItem?.productInfo,
+    rawItem?.productResponse,
+    rawItem?.productDto,
+    rawItem?.productDTO,
+    rawItem?.item,
+    rawItem?.tea,
+    rawItem?.variant?.product,
+    rawItem?.productVariant?.product,
+  ].filter((item) => item && typeof item === "object");
+
+  const variantCandidates = [
+    rawItem?.variant,
+    rawItem?.productVariant,
+    rawItem?.variantInfo,
+    rawItem?.variantResponse,
+    rawItem?.productVariantResponse,
+    rawItem?.detail,
+  ].filter((item) => item && typeof item === "object");
+
+  const addonCandidates = [
+    rawItem?.addon,
+    rawItem?.productAddon,
+    rawItem?.design,
+    rawItem?.addonInfo,
+  ].filter((item) => item && typeof item === "object");
+
+  const allSources = [rawItem, ...productCandidates, ...variantCandidates];
 
   const productId =
-    pickField(rawItem, ["productId", "productID"], null) ||
-    pickField(productInfo, ["productId", "productID"], null) ||
-    pickField(variantInfo, ["productId", "productID"], null) ||
+    pickFromMany(allSources, ["productId", "productID"], null) ||
+    pickFromMany(productCandidates, ["id", "productID"], null) ||
     `unknown-product-${index}`;
 
   const variantId =
-    pickField(rawItem, ["productVariantId", "variantId", "id"], null) ||
-    pickField(variantInfo, ["productVariantId", "variantId", "id"], null) ||
+    pickFromMany(
+      [rawItem, ...variantCandidates],
+      [
+        "productVariantId",
+        "productVariantID",
+        "variantId",
+        "variantID",
+        "productDetailId",
+        "id",
+      ],
+      null,
+    ) ||
     `variant-${index}`;
 
   const cachedAddonMeta = readAddonMetaMap()[String(variantId)] || null;
 
-  const cartItemId = pickField(rawItem, ["cartItemId"], null);
+  const cartItemId = pickField(rawItem, ["cartItemId", "cartDetailId", "id"], null);
 
   const quantity = toNumber(
-    pickField(rawItem, ["quantity", "qty"], 1),
+    pickFromMany([rawItem, ...variantCandidates], ["quantity", "qty", "count", "amount"], 1),
     1,
   );
 
   const baseUnitPrice = toNumber(
-    pickField(rawItem, ["unitPrice", "price", "variantPrice"], null) ??
-      pickField(variantInfo, ["price", "unitPrice"], null),
+    pickFromMany(
+      [rawItem, ...variantCandidates],
+      [
+        "unitPrice",
+        "price",
+        "variantPrice",
+        "basePrice",
+        "itemPrice",
+        "productPrice",
+      ],
+      null,
+    ),
     0,
   );
 
   const addonId =
-    pickField(rawItem, ["addonId", "productAddonId", "designId"], null) ||
-    pickField(addonInfo, ["id", "addonId", "productAddonId"], null) ||
+    pickFromMany([rawItem, ...addonCandidates], ["addonId", "productAddonId", "designId", "id"], null) ||
     cachedAddonMeta?.addonId ||
     null;
 
   const addonName =
-    pickField(rawItem, ["addonName", "designName"], null) ||
-    pickField(addonInfo, ["name", "addonName", "designName"], null) ||
+    pickFromMany([rawItem, ...addonCandidates], ["addonName", "designName", "name"], null) ||
     cachedAddonMeta?.addonName ||
     null;
 
   const addonPrice = toNumber(
-    pickField(rawItem, ["addonPrice", "designPrice"], null) ??
-      pickField(addonInfo, ["price", "addonPrice"], null) ??
+    pickFromMany([rawItem, ...addonCandidates], ["addonPrice", "designPrice", "price"], null) ??
       cachedAddonMeta?.addonPrice,
     0,
   );
 
   const explicitLineTotal = toNumber(
-    pickField(rawItem, ["lineTotal", "totalPrice", "amount", "subtotal"], null),
+    pickFromMany(
+      [rawItem, ...variantCandidates],
+      [
+        "lineTotal",
+        "totalPrice",
+        "totalAmount",
+        "amount",
+        "subtotal",
+        "lineAmount",
+        "finalPrice",
+      ],
+      null,
+    ),
     Number.NaN,
   );
 
@@ -193,21 +329,25 @@ function normalizeCartItem(rawItem, index) {
       : toNumber(cachedAddonMeta?.unitPrice, 0);
 
   const weight = pickField(rawItem, ["gram", "weight", "size"], null);
-  const sizeUnit = pickField(rawItem, ["sizeLabel", "unit", "weightUnit"], "g");
+  const sizeUnit = pickFromMany([rawItem, ...variantCandidates], ["sizeLabel", "unit", "weightUnit"], "g");
   const sizeLabel =
     weight !== null && weight !== undefined
       ? `${weight}${sizeUnit}`
-      : pickField(rawItem, ["sizeLabel", "variantName", "name"], "Mac dinh");
+      : pickFromMany([rawItem, ...variantCandidates], ["sizeLabel", "variantName", "name"], "Mac dinh");
 
   const name =
-    pickField(rawItem, ["productName", "name"], null) ||
-    pickField(productInfo, ["name", "productName"], null) ||
+    pickFromMany(allSources, ["productName", "name", "title"], null) ||
     "San pham";
 
-  const img =
-    pickField(rawItem, ["imageUrl", "img", "image"], null) ||
-    pickField(productInfo, ["imageUrl", "thumbnail", "img"], null) ||
-    FALLBACK_IMAGE;
+  const imgSources = [
+    rawItem,
+    ...productCandidates,
+    ...variantCandidates,
+    rawItem?.productImage,
+    rawItem?.image,
+    rawItem?.thumbnail,
+  ];
+  const img = imgSources.map(extractProductImage).find((value) => Boolean(value)) || null;
 
   return {
     productId,
