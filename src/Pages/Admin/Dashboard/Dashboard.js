@@ -47,6 +47,59 @@ const toLabel = (item, index) => {
   return String(raw);
 };
 
+const normalizeRevenuePayload = (payload) => {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  const preferredListKeys = [
+    'items',
+    'revenues',
+    'revenueItems',
+    'weeklyRevenues',
+    'monthlyRevenues',
+    'weekRevenues',
+    'monthRevenues',
+    'data',
+  ];
+
+  for (const key of preferredListKeys) {
+    if (Array.isArray(payload?.[key])) {
+      return payload[key];
+    }
+  }
+
+  if (payload && typeof payload === 'object') {
+    const objectEntries = Object.entries(payload)
+      .map(([label, value]) => {
+        if (typeof value === 'number') {
+          return { label, amount: value };
+        }
+
+        if (value && typeof value === 'object') {
+          return {
+            label,
+            amount: Number(
+              value?.amount ?? value?.revenue ?? value?.value ?? value?.total ?? value?.salesRevenue ?? 0,
+            ),
+          };
+        }
+
+        return {
+          label,
+          amount: Number(value || 0),
+        };
+      })
+      .filter((entry) => Number.isFinite(entry.amount));
+
+    if (objectEntries.length > 0) {
+      return objectEntries;
+    }
+  }
+
+  return [];
+};
+
 const Dashboard = () => {
   const [summary, setSummary] = useState({
     salesRevenue: 0,
@@ -107,7 +160,7 @@ const Dashboard = () => {
         setLoadingRevenue(true);
         setRevenueError('');
         const response = await getAdminDashboardRevenueApi({ type: revenueType });
-        setRevenueData(response?.data || []);
+        setRevenueData(normalizeRevenuePayload(response?.data));
       } catch (error) {
         setRevenueError(error?.message || 'Không tải được dữ liệu doanh thu.');
       } finally {
@@ -137,6 +190,11 @@ const Dashboard = () => {
       percent: maxAmount > 0 ? Math.max(6, Math.round((item.amount / maxAmount) * 100)) : 0,
     }));
   }, [revenueData]);
+
+  const visibleRevenueBars = useMemo(() => {
+    const limit = revenueType === 'week' ? 7 : 12;
+    return revenueBars.slice(-limit);
+  }, [revenueBars, revenueType]);
 
   return (
     <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-gray-50 text-[#102213] min-h-screen">
@@ -237,28 +295,36 @@ const Dashboard = () => {
               </div>
             )}
 
-            {!loadingRevenue && !revenueError && revenueBars.length === 0 && (
+            {!loadingRevenue && !revenueError && visibleRevenueBars.length === 0 && (
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
                 Chưa có dữ liệu doanh thu cho kỳ này.
               </div>
             )}
 
-            {!loadingRevenue && !revenueError && revenueBars.length > 0 && (
-              <div className="space-y-4">
-                {revenueBars.map((item) => (
-                  <div key={item.label} className="space-y-1">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-bold text-slate-700">{item.label}</span>
-                      <span className="font-bold text-slate-900">{formatVnd(item.amount)}</span>
+            {!loadingRevenue && !revenueError && visibleRevenueBars.length > 0 && (
+              <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+                <div
+                  className="h-[280px] grid gap-2 md:gap-3 items-end"
+                  style={{ gridTemplateColumns: `repeat(${visibleRevenueBars.length}, minmax(0, 1fr))` }}
+                >
+                  {visibleRevenueBars.map((item) => (
+                    <div key={item.label} className="h-full flex flex-col justify-end min-w-0">
+                      <div className="text-[10px] md:text-xs font-bold text-slate-700 text-center truncate mb-1">
+                        {item.amount > 0 ? `${Math.round(item.amount / 1000)}k` : '0'}
+                      </div>
+                      <div className="relative h-[220px] rounded-md bg-white border border-slate-100 flex items-end overflow-hidden">
+                        <div
+                          className="w-full bg-gradient-to-t from-blue-600 via-blue-500 to-cyan-400 transition-all duration-500"
+                          style={{ height: `${item.percent}%` }}
+                          title={`${item.label}: ${formatVnd(item.amount)}`}
+                        ></div>
+                      </div>
+                      <div className="text-[11px] md:text-xs font-semibold text-slate-600 text-center mt-2 truncate" title={item.label}>
+                        {item.label}
+                      </div>
                     </div>
-                    <div className="w-full h-2 rounded-full bg-gray-100 overflow-hidden">
-                      <div
-                        className="h-full bg-blue-500"
-                        style={{ width: `${item.percent}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </div>

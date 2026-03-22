@@ -117,10 +117,10 @@ function normalizeProduct(item) {
 
   return {
     productId: item.productId,
-    name: item.name || "San pham tra",
-    type: item.categoryName || "Khac",
-    origin: item.categoryName || "Khac",
-    desc: item.description || "Chua co mo ta.",
+    name: item.name || "Sản phẩm trà",
+    type: item.categoryName || "Khác",
+    origin: item.categoryName || "Khác",
+    desc: item.description || "Chưa có mô tả.",
     img: mainImage,
     thumbnails: images.length > 0 ? images : [mainImage],
     productDetails:
@@ -144,7 +144,7 @@ function normalizeProduct(item) {
 function normalizeAddon(addon) {
   return {
     id: String(addon?.id || ""),
-    name: addon?.name || "Thiet ke",
+    name: addon?.name || "Thiết kế",
     description: addon?.description || "",
     imageUrl: addon?.imageUrl || "",
     price: Number(addon?.price || 0),
@@ -248,7 +248,7 @@ const ProductDetail = () => {
     }
 
     if (addonMode === "design" && !selectedAddon?.id) {
-      toast.warning("Vui long chon thiet ke cho san pham.");
+      toast.warning("Vui lòng chọn thiết kế cho sản phẩm.");
       return;
     }
 
@@ -302,7 +302,7 @@ const ProductDetail = () => {
   if (loading) {
     return (
       <div className="flex-1 w-full max-w-[1440px] mx-auto px-4 md:px-10 py-20 text-center text-gray-500 font-bold">
-        Dang tai chi tiet san pham...
+        Đang tải chi tiết sản phẩm...
       </div>
     );
   }
@@ -318,7 +318,7 @@ const ProductDetail = () => {
   if (!product) {
     return (
       <div className="flex-1 w-full max-w-[1440px] mx-auto px-4 md:px-10 py-20 text-center text-gray-500 font-bold">
-        Khong tim thay san pham.
+        Không tìm thấy sản phẩm.
       </div>
     );
   }
@@ -330,14 +330,14 @@ const ProductDetail = () => {
           to="/"
           className="text-gray-500 hover:text-primary transition-colors font-medium"
         >
-          Trang chu
+          Trang chủ
         </Link>
         <span className="text-gray-300">/</span>
         <Link
           to="/shop"
           className="text-gray-500 hover:text-primary transition-colors font-medium"
         >
-          Tat ca tra
+          Tất cả trà
         </Link>
         <span className="text-gray-300">/</span>
         <span className="text-[#0d1b10] font-bold">{product.name}</span>
@@ -392,7 +392,7 @@ const ProductDetail = () => {
 
           <div className="space-y-3">
             <label className="text-xs font-black uppercase tracking-widest text-gray-400">
-              Kich co
+              Kích cỡ
             </label>
             <div className="flex flex-wrap gap-3">
               {product.productDetails.map((detail) => (
@@ -412,13 +412,13 @@ const ProductDetail = () => {
               ))}
             </div>
             <p className="text-sm text-gray-500 font-medium">
-              Ton kho: {Number(selectedProductDetail?.stockQuantity || 0)}
+              Tồn kho: {Number(selectedProductDetail?.stockQuantity || 0)}
             </p>
           </div>
 
           <div className="space-y-3">
             <label className="text-xs font-black uppercase tracking-widest text-gray-400">
-              Tuy chon thiet ke
+              Tùy chọn thiết kế
             </label>
             <div className="flex flex-wrap gap-3">
               <button
@@ -434,7 +434,7 @@ const ProductDetail = () => {
                     : "border-gray-200 hover:border-primary text-gray-500 hover:text-[#0d1b10]"
                 }`}
               >
-                Khong thiet ke
+                Không thiết kế
               </button>
               <button
                 type="button"
@@ -449,19 +449,19 @@ const ProductDetail = () => {
                     : "border-gray-200 hover:border-primary text-gray-500 hover:text-[#0d1b10]"
                 } ${!hasAssignedAddons ? "opacity-50 cursor-not-allowed" : ""}`}
               >
-                Chon thiet ke
+                Chọn thiết kế
               </button>
             </div>
 
             {!hasAssignedAddons && (
               <p className="text-sm text-gray-500 font-medium">
-                San pham nay chua duoc gan thiet ke nao.
+                Sản phẩm này chưa được gán thiết kế nào.
               </p>
             )}
 
             {addonMode === "design" && selectedAddon && (
               <p className="text-sm text-gray-600 font-medium">
-                Da chon: <span className="font-bold text-[#0d1b10]">{selectedAddon.name}</span> (+{formatVnd(selectedAddon.price)})
+                Đã chọn: <span className="font-bold text-[#0d1b10]">{selectedAddon.name}</span> (+{formatVnd(selectedAddon.price)})
               </p>
             )}
 
@@ -472,7 +472,7 @@ const ProductDetail = () => {
                 className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:text-primary/80"
               >
                 <span className="material-symbols-outlined text-[18px]">palette</span>
-                {selectedAddon ? "Doi mau thiet ke" : "Chon mau thiet ke"}
+                {selectedAddon ? "Đổi mẫu thiết kế" : "Chọn mẫu thiết kế"}
               </button>
             )}
           </div>
@@ -509,7 +509,7 @@ const ProductDetail = () => {
               className="flex-1 h-14 bg-primary hover:bg-primary/90 text-[#0d1b10] font-black text-lg rounded-xl shadow-lg shadow-primary/20 flex items-center justify-center gap-2 transition-transform hover:scale-[1.02] active:scale-95"
             >
               <span className="material-symbols-outlined">shopping_bag</span>
-              Them vao gio
+              Thêm vào giỏ
             </button>
           </div>
         </div>
@@ -525,7 +525,7 @@ const ProductDetail = () => {
                 : "border-transparent text-gray-400 hover:border-gray-300 hover:text-gray-600 font-bold"
             }`}
           >
-            Mo ta
+            Mô tả
           </button>
           <button
             onClick={() => setActiveTab("Origin")}
@@ -535,7 +535,7 @@ const ProductDetail = () => {
                 : "border-transparent text-gray-400 hover:border-gray-300 hover:text-gray-600 font-bold"
             }`}
           >
-            Xuat xu
+            Xuất xứ
           </button>
           <button
             onClick={() => setActiveTab("Reviews")}
@@ -545,7 +545,7 @@ const ProductDetail = () => {
                 : "border-transparent text-gray-400 hover:border-gray-300 hover:text-gray-600 font-bold"
             }`}
           >
-            Danh gia
+            Đánh giá
           </button>
         </div>
 
@@ -561,7 +561,7 @@ const ProductDetail = () => {
       <div className="mt-32 mb-12">
         <div className="flex items-center justify-between mb-10">
           <h3 className="text-2xl md:text-3xl font-black text-[#0d1b10]">
-            Co the ban se thich
+            Có thể bạn sẽ thích
           </h3>
           <div className="flex gap-3">
             <button
@@ -571,7 +571,7 @@ const ProductDetail = () => {
                   ? "opacity-40 cursor-not-allowed"
                   : "border-gray-200 hover:border-primary hover:text-primary"
               }`}
-              aria-label="truoc"
+              aria-label="trước"
             >
               <span className="material-symbols-outlined">arrow_back</span>
             </button>
@@ -623,7 +623,7 @@ const ProductDetail = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
           <div className="w-full max-w-xl rounded-2xl bg-white shadow-2xl border border-slate-200">
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-              <h3 className="text-lg font-black text-[#0d1b10]">Chon thiet ke cho san pham</h3>
+              <h3 className="text-lg font-black text-[#0d1b10]">Chọn thiết kế cho sản phẩm</h3>
               <button
                 type="button"
                 onClick={() => setIsAddonPopupOpen(false)}
@@ -681,7 +681,7 @@ const ProductDetail = () => {
                 onClick={() => setIsAddonPopupOpen(false)}
                 className="flex-1 rounded-lg bg-slate-100 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-200"
               >
-                Dong
+                Đóng
               </button>
               <button
                 type="button"
@@ -692,7 +692,7 @@ const ProductDetail = () => {
                 disabled={!selectedAddonId}
                 className="flex-1 rounded-lg bg-primary py-2.5 text-sm font-black text-[#0d1b10] hover:bg-primary/90 disabled:opacity-60"
               >
-                Xac nhan
+                Xác nhận
               </button>
             </div>
           </div>
