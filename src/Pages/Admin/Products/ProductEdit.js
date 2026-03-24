@@ -11,6 +11,7 @@ import {
   deleteAdminProductImageApi,
   deleteAdminProductApi,
   getAdminCategoriesApi,
+  getAdminProductsApi,
   getAdminProductDetailApi,
   setAdminProductMainImageApi,
   updateAdminProductApi,
@@ -125,7 +126,7 @@ const ProductEdit = () => {
   }, [isAddMode, productId]);
 
   useEffect(() => {
-    if (isAddMode || !productId) {
+    if (!isAddMode && !productId) {
       return;
     }
 
@@ -133,10 +134,10 @@ const ProductEdit = () => {
       try {
         setLoadingAddons(true);
 
-        const [allAddonsRes, assignedAddonsRes] = await Promise.all([
-          getAdminAddonsApi({ pageNumber: 1, pageSize: 200 }),
-          getAdminAddonsByProductApi(productId),
-        ]);
+        const allAddonsRes = await getAdminAddonsApi({ pageNumber: 1, pageSize: 200 });
+        const assignedAddonsRes = !isAddMode
+          ? await getAdminAddonsByProductApi(productId)
+          : null;
 
         const allItems = Array.isArray(allAddonsRes?.data?.items) ? allAddonsRes.data.items : [];
         const assignedItems = Array.isArray(assignedAddonsRes?.data) ? assignedAddonsRes.data : [];
@@ -230,12 +231,14 @@ const ProductEdit = () => {
     return variants
       .map((item) => ({
         variantId: item.variantId,
+        gram: Number(item.gram),
         price: Number(item.price),
         stockQuantity: Number(item.stockQuantity),
       }))
       .filter(
         (item) =>
           item.variantId &&
+          Number.isFinite(item.gram) &&
           Number.isFinite(item.price) &&
           Number.isFinite(item.stockQuantity),
       );
@@ -401,13 +404,39 @@ const ProductEdit = () => {
       setSubmitting(true);
 
       if (isAddMode) {
-        await createAdminProductApi({
+        const createResponse = await createAdminProductApi({
           name: name.trim(),
           description: description.trim(),
           categoryId,
           variants: variantsPayload,
           images: imageFiles,
         });
+
+        if (selectedAddonIds.length > 0) {
+          let createdProductId = String(
+            createResponse?.data?.productId ||
+              createResponse?.data?.id ||
+              createResponse?.data?.product?.id ||
+              '',
+          );
+
+          // Fallback for APIs that do not return the created id.
+          if (!createdProductId) {
+            const productListRes = await getAdminProductsApi({ pageNumber: 1, pageSize: 200 });
+            const candidate = (productListRes?.data?.items || []).find(
+              (item) =>
+                String(item?.name || '').trim().toLowerCase() === name.trim().toLowerCase() &&
+                String(item?.categoryId || '') === String(categoryId),
+            );
+            createdProductId = String(candidate?.productId || candidate?.id || '');
+          }
+
+          if (createdProductId) {
+            await assignAdminAddonsToProductApi(createdProductId, selectedAddonIds);
+          } else {
+            toast.warning('Tạo sản phẩm thành công nhưng chưa gán được add-on. Vui lòng mở sửa để gán thủ công.');
+          }
+        }
 
         toast.success('Tạo sản phẩm thành công.');
       } else {
@@ -426,6 +455,7 @@ const ProductEdit = () => {
             variantUpdates.map((item) =>
               updateAdminProductVariantApi({
                 variantId: item.variantId,
+                gram: item.gram,
                 price: item.price,
                 stockQuantity: item.stockQuantity,
               }),
@@ -718,16 +748,15 @@ const ProductEdit = () => {
               </h3>
               <div className="space-y-4">
                 {variants.map((variant, index) => (
-                  <div key={`${index}-${variant.gram}-${variant.price}`} className="grid grid-cols-1 gap-3 rounded-lg border border-slate-200 p-3">
+                  <div key={variant.variantId || `new-${index}`} className="grid grid-cols-1 gap-3 rounded-lg border border-slate-200 p-3">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <div>
                         <label className="block text-xs font-bold text-slate-600 mb-1">Khối lượng (g)</label>
                         <input
                           type="number"
                           value={variant.gram}
-                          readOnly={!isAddMode}
                           onChange={(e) => handleVariantChange(index, 'gram', e.target.value)}
-                          className="block w-full rounded-lg border-slate-200 bg-slate-50 focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                          className="block w-full rounded-lg border-slate-200 bg-slate-50 focus:border-blue-500 focus:ring-blue-500 sm:text-sm [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         />
                       </div>
                       <div>
@@ -736,7 +765,7 @@ const ProductEdit = () => {
                           type="number"
                           value={variant.price}
                           onChange={(e) => handleVariantChange(index, 'price', e.target.value)}
-                          className="block w-full rounded-lg border-slate-200 bg-slate-50 focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                          className="block w-full rounded-lg border-slate-200 bg-slate-50 focus:border-blue-500 focus:ring-blue-500 sm:text-sm [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         />
                       </div>
                       <div>
@@ -745,7 +774,7 @@ const ProductEdit = () => {
                           type="number"
                           value={variant.stockQuantity}
                           onChange={(e) => handleVariantChange(index, 'stockQuantity', e.target.value)}
-                          className="block w-full rounded-lg border-slate-200 bg-slate-50 focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                          className="block w-full rounded-lg border-slate-200 bg-slate-50 focus:border-blue-500 focus:ring-blue-500 sm:text-sm [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         />
                       </div>
                     </div>
@@ -797,12 +826,12 @@ const ProductEdit = () => {
               </div>
             </div>
 
-            {!isAddMode && (
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                    <span className="material-symbols-outlined text-blue-600">sell</span> Gán thiết kế (Add-on)
-                  </h3>
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-blue-600">sell</span> Gán thiết kế (Add-on)
+                </h3>
+                {!isAddMode ? (
                   <button
                     type="button"
                     onClick={handleAssignAddons}
@@ -811,41 +840,43 @@ const ProductEdit = () => {
                   >
                     {assigningAddons ? 'Đang gán...' : 'Lưu gán'}
                   </button>
-                </div>
-
-                {loadingAddons ? (
-                  <p className="text-sm text-slate-500">Đang tải danh sách thiết kế...</p>
-                ) : availableAddons.length === 0 ? (
-                  <p className="text-sm text-slate-500">Chưa có add-on nào trong hệ thống.</p>
                 ) : (
-                  <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                    {availableAddons.map((addon) => {
-                      const checked = selectedAddonIds.includes(addon.id);
-                      return (
-                        <label
-                          key={addon.id}
-                          className="flex items-start gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50 cursor-pointer"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => handleToggleAddon(addon.id)}
-                            className="mt-1 size-4 rounded border-slate-300"
-                          />
-                          <div className="min-w-0">
-                            <p className="text-sm font-bold text-slate-900 truncate">{addon.name}</p>
-                            <p className="text-xs text-slate-500">{formatVnd(addon.price)}</p>
-                            {addon.description && (
-                              <p className="text-xs text-slate-500 line-clamp-2">{addon.description}</p>
-                            )}
-                          </div>
-                        </label>
-                      );
-                    })}
-                  </div>
+                  <span className="text-xs font-medium text-slate-500">Sẽ gán khi bấm Tạo sản phẩm</span>
                 )}
               </div>
-            )}
+
+              {loadingAddons ? (
+                <p className="text-sm text-slate-500">Đang tải danh sách thiết kế...</p>
+              ) : availableAddons.length === 0 ? (
+                <p className="text-sm text-slate-500">Chưa có add-on nào trong hệ thống.</p>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {availableAddons.map((addon) => {
+                    const checked = selectedAddonIds.includes(addon.id);
+                    return (
+                      <label
+                        key={addon.id}
+                        className="flex items-start gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => handleToggleAddon(addon.id)}
+                          className="mt-1 size-4 rounded border-slate-300"
+                        />
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-slate-900 truncate">{addon.name}</p>
+                          <p className="text-xs text-slate-500">{formatVnd(addon.price)}</p>
+                          {addon.description && (
+                            <p className="text-xs text-slate-500 line-clamp-2">{addon.description}</p>
+                          )}
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
           </div>
         </div>

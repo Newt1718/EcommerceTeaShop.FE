@@ -233,15 +233,22 @@ export function updateAdminProductApi({
 
 export function updateAdminProductVariantApi({
   variantId,
+  gram,
   price,
   stockQuantity,
 }) {
+  const payload = {
+    price: Number(price),
+    stockquantity: Number(stockQuantity),
+  };
+
+  if (Number.isFinite(Number(gram))) {
+    payload.gram = Number(gram);
+  }
+
   return request(`/AdminProduct/update-variant/${variantId}`, {
     method: "PUT",
-    body: JSON.stringify({
-      price: Number(price),
-      stockquantity: Number(stockQuantity),
-    }),
+    body: JSON.stringify(payload),
   });
 }
 
