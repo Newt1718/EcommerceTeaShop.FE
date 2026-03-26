@@ -102,9 +102,10 @@ const HeroSlider = () => {
     setIndex((i) => (i + 1) % slides.length);
   };
   const activeSlide = slides[index] || slides[0];
-  const titleSegments = activeSlide?.title
-    ? activeSlide.title.split("\n")
-    : ["Trải nghiệm", "nghệ thuật bình yên"];
+  const normalizedTitle = String(activeSlide?.title || "Trải nghiệm nghệ thuật bình yên")
+    .replace(/\s*\n+\s*/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
   return (
     <div
@@ -126,13 +127,9 @@ const HeroSlider = () => {
         );
       })}
 
-      <div className="relative z-20 text-center px-4 max-w-3xl">
-        <h1 className="text-white text-5xl md:text-7xl font-black mb-6 leading-tight drop-shadow-sm">
-          {titleSegments.map((line, idx) => (
-            <span key={`${line}-${idx}`} className={idx === 1 ? "block text-primary" : "block"}>
-              {line}
-            </span>
-          ))}
+      <div className="relative z-20 text-center px-4 w-full max-w-7xl">
+        <h1 className="text-white text-4xl md:text-6xl lg:text-7xl font-black mb-6 leading-[1.05] tracking-tight drop-shadow-sm whitespace-normal md:whitespace-nowrap">
+          {normalizedTitle}
         </h1>
         <p className="text-white/90 text-lg md:text-xl mb-8 max-w-2xl mx-auto font-medium">
           {activeSlide?.description}
@@ -153,17 +150,17 @@ const HeroSlider = () => {
 
       <button
         onClick={prev}
-        className="absolute left-4 top-1/2 transform -translate-y-1/2 z-30 bg-white/20 hover:bg-white/30 text-white rounded-full p-2"
+        className="absolute left-4 top-1/2 -translate-y-1/2 z-30 h-12 w-12 md:h-14 md:w-14 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 text-white backdrop-blur-sm transition-colors"
         aria-label="Trang trước"
       >
-        <span className="material-symbols-outlined">chevron_left</span>
+        <span className="material-symbols-outlined text-[26px] leading-none">chevron_left</span>
       </button>
       <button
         onClick={next}
-        className="absolute right-4 top-1/2 transform -translate-y-1/2 z-30 bg-white/20 hover:bg-white/30 text-white rounded-full p-2"
+        className="absolute right-4 top-1/2 -translate-y-1/2 z-30 h-12 w-12 md:h-14 md:w-14 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 text-white backdrop-blur-sm transition-colors"
         aria-label="Trang sau"
       >
-        <span className="material-symbols-outlined">chevron_right</span>
+        <span className="material-symbols-outlined text-[26px] leading-none">chevron_right</span>
       </button>
 
       <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex gap-2 z-30">

@@ -3,6 +3,7 @@ import {
   getAdminOrderDetailApi,
   getAdminOrdersApi,
 } from '../../../services/adminOrderApi';
+import { getAdminDashboardTransactionsApi } from '../../../services/adminDashboardApi';
 
 const formatVnd = (value) => `${new Intl.NumberFormat('vi-VN').format(Number(value || 0))} đ`;
 
@@ -58,6 +59,24 @@ const mapStatusClass = (status) => {
   return 'bg-slate-100 text-slate-700 border-slate-200';
 };
 
+const resolveOrderStatus = (orderStatus, transactionStatusCode) => {
+  const normalizedOrderStatus = String(orderStatus || '').toLowerCase();
+  const normalizedTxCode = Number(transactionStatusCode);
+
+  if (normalizedTxCode === 2) {
+    return 'Paid';
+  }
+
+  if (normalizedTxCode === 0 || normalizedTxCode === 1) {
+    if (['paid', 'completed', 'success'].includes(normalizedOrderStatus)) {
+      return orderStatus;
+    }
+    return 'Pending';
+  }
+
+  return orderStatus || '--';
+};
+
 const Orders = () => {
   const [activeTab, setActiveTab] = useState('Tất cả đơn');
   const [searchQuery, setSearchQuery] = useState('');
@@ -78,6 +97,7 @@ const Orders = () => {
   const [ordersError, setOrdersError] = useState('');
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [detailError, setDetailError] = useState('');
+  const [txStatusByOrderCode, setTxStatusByOrderCode] = useState({});
 
   const itemsPerPage = ordersPage.pageSize || 10;
 
@@ -85,19 +105,23 @@ const Orders = () => {
     () =>
       (ordersPage.items || []).map((order) => {
         const { date, time } = formatDateTime(order.orderDate);
+        const orderCode = order.orderCode;
+        const txStatusCode = txStatusByOrderCode[String(orderCode)];
+        const resolvedStatus = resolveOrderStatus(order.status, txStatusCode);
+
         return {
           id: order.id,
-          orderCode: order.orderCode,
+          orderCode,
           customer: order.customerName || 'Không có tên',
           email: order.email || '--',
           type: mapApiTypeToUiType(order.type),
           date,
           time,
           amount: Number(order.totalPrice || 0),
-          status: order.status || '--',
+          status: resolvedStatus,
         };
       }),
-    [ordersPage.items],
+    [ordersPage.items, txStatusByOrderCode],
   );
 
   const filteredOrders = useMemo(() => {
@@ -188,6 +212,40 @@ const Orders = () => {
       mounted = false;
     };
   }, [activeTab, currentPage, itemsPerPage, sortOption]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadTransactions = async () => {
+      try {
+        const response = await getAdminDashboardTransactionsApi();
+        if (!mounted) {
+          return;
+        }
+
+        const list = Array.isArray(response?.data) ? response.data : [];
+        const nextMap = list.reduce((acc, item) => {
+          const key = String(item?.orderCode || '');
+          if (key) {
+            acc[key] = Number(item?.status);
+          }
+          return acc;
+        }, {});
+
+        setTxStatusByOrderCode(nextMap);
+      } catch (error) {
+        if (mounted) {
+          setTxStatusByOrderCode({});
+        }
+      }
+    };
+
+    loadTransactions();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const handleViewDetail = async (order) => {
     setIsLoadingDetail(true);

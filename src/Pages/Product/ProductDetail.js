@@ -554,7 +554,7 @@ const ProductDetail = () => {
         ) : activeTab === "Origin" ? (
           <Origin />
         ) : (
-          <Reviews />
+          <Reviews productId={id} />
         )}
       </div>
 

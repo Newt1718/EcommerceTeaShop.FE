@@ -11,8 +11,9 @@ import { clearCart, setCartProducts } from "../../redux/cartSlice/cartSlice";
 const formatVnd = (value) => `${Number(value || 0).toLocaleString("vi-VN")}đ`;
 const FALLBACK_PRODUCT_IMAGE =
   "https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=800&q=80";
+const CHECKOUT_SELECTED_ITEMS_KEY = "checkoutSelectedCartItemIds";
 
-const getItemUnitPrice = (item) => Number(item?.unitPrice || 0) + Number(item?.addonPrice || 0);
+const getItemUnitPrice = (item) => Number(item?.unitPrice || 0);
 
 function normalizeText(value) {
   return String(value || "")
@@ -146,6 +147,7 @@ const Checkout = () => {
   const [checkingOut, setCheckingOut] = useState(false);
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [selectedAddress, setSelectedAddress] = useState(null);
+  const [selectedCartItemIds, setSelectedCartItemIds] = useState(null);
   const [addressForm, setAddressForm] = useState({
     fullName: user?.name || "",
     phone: "",
@@ -292,6 +294,26 @@ const Checkout = () => {
   }, [dispatch, isAuthenticated]);
 
   useEffect(() => {
+    try {
+      const fromState = location?.state?.selectedCartItemIds;
+      if (Array.isArray(fromState) && fromState.length > 0) {
+        const normalized = fromState.filter(Boolean);
+        setSelectedCartItemIds(normalized);
+        sessionStorage.setItem(CHECKOUT_SELECTED_ITEMS_KEY, JSON.stringify(normalized));
+        return;
+      }
+
+      const fromStorage = sessionStorage.getItem(CHECKOUT_SELECTED_ITEMS_KEY);
+      const parsed = fromStorage ? JSON.parse(fromStorage) : null;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        setSelectedCartItemIds(parsed.filter(Boolean));
+      }
+    } catch (error) {
+      setSelectedCartItemIds(null);
+    }
+  }, [location?.state]);
+
+  useEffect(() => {
     const params = new URLSearchParams(location.search || "");
     const hasPaymentParams =
       params.has("vnp_ResponseCode") ||
@@ -314,13 +336,16 @@ const Checkout = () => {
       status === "paid";
 
     if (isSuccess) {
+      sessionStorage.removeItem(CHECKOUT_SELECTED_ITEMS_KEY);
       dispatch(clearCart());
       toast.success("Thanh toán thành công.");
+      navigate("/", { replace: true });
+      return;
     } else {
-      toast.error("Thanh toán chưa hoàn tất hoặc đã bị hủy.");
+      toast.info("Bạn đã hủy hoặc chưa hoàn tất thanh toán.");
+      navigate("/", { replace: true });
+      return;
     }
-
-    navigate("/checkout", { replace: true });
   }, [dispatch, location.search, navigate]);
 
   const handleAddressInputChange = (event) => {
@@ -370,7 +395,38 @@ const Checkout = () => {
     }
   };
 
-  const orderItems = useMemo(() => flattenCartItems(cartProducts), [cartProducts]);
+  const allOrderItems = useMemo(() => flattenCartItems(cartProducts), [cartProducts]);
+
+  useEffect(() => {
+    if (!Array.isArray(selectedCartItemIds) || selectedCartItemIds.length === 0) {
+      return;
+    }
+
+    const validIds = new Set(
+      allOrderItems.map((item) => item?.cartItemId).filter(Boolean),
+    );
+    const sanitized = selectedCartItemIds.filter((id) => validIds.has(id));
+
+    if (sanitized.length === 0) {
+      setSelectedCartItemIds(null);
+      sessionStorage.removeItem(CHECKOUT_SELECTED_ITEMS_KEY);
+      return;
+    }
+
+    if (sanitized.length !== selectedCartItemIds.length) {
+      setSelectedCartItemIds(sanitized);
+      sessionStorage.setItem(CHECKOUT_SELECTED_ITEMS_KEY, JSON.stringify(sanitized));
+    }
+  }, [allOrderItems, selectedCartItemIds]);
+
+  const orderItems = useMemo(() => {
+    if (!Array.isArray(selectedCartItemIds) || selectedCartItemIds.length === 0) {
+      return allOrderItems;
+    }
+
+    const selectedSet = new Set(selectedCartItemIds);
+    return allOrderItems.filter((item) => selectedSet.has(item?.cartItemId));
+  }, [allOrderItems, selectedCartItemIds]);
 
   const subtotal = useMemo(
     () =>
@@ -400,7 +456,12 @@ const Checkout = () => {
       dispatch(setCartProducts(normalized));
 
       const refreshedItems = flattenCartItems(normalized);
-      const cartItemIds = refreshedItems
+      const checkoutItems =
+        Array.isArray(selectedCartItemIds) && selectedCartItemIds.length > 0
+          ? refreshedItems.filter((item) => selectedCartItemIds.includes(item?.cartItemId))
+          : refreshedItems;
+
+      const cartItemIds = checkoutItems
         .map((item) => item.cartItemId)
         .filter(Boolean);
 

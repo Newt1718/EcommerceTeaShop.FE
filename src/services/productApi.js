@@ -239,11 +239,12 @@ export function updateAdminProductVariantApi({
 }) {
   const payload = {
     price: Number(price),
-    stockquantity: Number(stockQuantity),
+    stockQuantity: Number(stockQuantity),
   };
 
   if (Number.isFinite(Number(gram))) {
     payload.gram = Number(gram);
+    payload.weight = Number(gram);
   }
 
   return request(`/AdminProduct/update-variant/${variantId}`, {

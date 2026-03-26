@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import {
   addToCart,
@@ -20,6 +20,7 @@ import { toast } from "react-toastify";
 const formatVnd = (value) => `${Number(value || 0).toLocaleString("vi-VN")}đ`;
 const FALLBACK_CART_IMAGE =
   "https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=800&q=80";
+const CHECKOUT_SELECTED_ITEMS_KEY = "checkoutSelectedCartItemIds";
 
 const isLocalOnlyDetail = (detail) => !detail?.cartItemId && !detail?.productVariantId;
 
@@ -29,7 +30,7 @@ const isSameDetailLine = (detailA, detailB) => {
   return sameId && sameAddon;
 };
 
-const getItemUnitPrice = (item) => Number(item?.unitPrice || 0) + Number(item?.addonPrice || 0);
+const getItemUnitPrice = (item) => Number(item?.unitPrice || 0);
 
 function normalizeText(value) {
   return String(value || "")
@@ -219,7 +220,9 @@ const mergeProductsByDetails = (serverProducts, localProducts) => {
 
 const Cart = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [selectedCartItemIds, setSelectedCartItemIds] = useState([]);
 
   // 1. Get data from Redux
   const products = useSelector((state) => state.cart.products);
@@ -447,7 +450,84 @@ const Cart = () => {
         })) || [],
     ) || [];
 
-  const calculatedTotal = flatCartItems.reduce((acc, item) => {
+  useEffect(() => {
+    const selectableIds = Array.from(
+      new Set(flatCartItems.map((item) => item?.cartItemId).filter(Boolean)),
+    );
+
+    setSelectedCartItemIds((prev) => {
+      const preserved = (Array.isArray(prev) ? prev : []).filter((id) =>
+        selectableIds.includes(id),
+      );
+      return preserved;
+    });
+  }, [flatCartItems]);
+
+  const selectedSet = new Set(selectedCartItemIds);
+  const selectedFlatCartItems = flatCartItems.filter(
+    (item) => item?.cartItemId && selectedSet.has(item.cartItemId),
+  );
+  const selectableItemCount = Array.from(
+    new Set(flatCartItems.map((item) => item?.cartItemId).filter(Boolean)),
+  ).length;
+  const selectedCount = selectedCartItemIds.length;
+  const allSelected = selectableItemCount > 0 && selectedCount === selectableItemCount;
+
+  const handleToggleItemSelection = (cartItemId) => {
+    if (!cartItemId) {
+      return;
+    }
+
+    setSelectedCartItemIds((prev) => {
+      if (prev.includes(cartItemId)) {
+        return prev.filter((id) => id !== cartItemId);
+      }
+      return [...prev, cartItemId];
+    });
+  };
+
+  const handleToggleSelectAll = () => {
+    const allIds = Array.from(
+      new Set(flatCartItems.map((item) => item?.cartItemId).filter(Boolean)),
+    );
+
+    setSelectedCartItemIds((prev) =>
+      prev.length === allIds.length ? [] : allIds,
+    );
+  };
+
+  const handleProceedCheckout = () => {
+    if (selectedCartItemIds.length === 0) {
+      toast.warning("Vui lòng chọn ít nhất 1 sản phẩm để thanh toán.");
+      return;
+    }
+
+    const targetUrl = `/checkout?from=cart&ts=${Date.now()}`;
+
+    try {
+      sessionStorage.setItem(
+        CHECKOUT_SELECTED_ITEMS_KEY,
+        JSON.stringify(selectedCartItemIds),
+      );
+    } catch (error) {
+      // ignore storage failures and still navigate with state/fallback redirect
+    }
+
+    navigate(targetUrl, {
+      state: {
+        selectedCartItemIds,
+        fromCart: true,
+      },
+    });
+
+    setTimeout(() => {
+      if (window.location.pathname === "/cart") {
+        window.location.assign(targetUrl);
+      }
+    }, 0);
+  };
+
+  const calculatedTotal = selectedFlatCartItems.reduce((acc, item) => {
     return acc + getItemUnitPrice(item) * Number(item.quantity || 0);
   }, 0);
 
@@ -477,6 +557,24 @@ const Cart = () => {
               </h1>
             </div>
 
+            {flatCartItems.length > 0 && (
+              <div className="flex items-center justify-between rounded-lg border border-[#e7f3e9] bg-white p-3">
+                <label className="inline-flex items-center gap-2 text-sm font-medium text-[#0d1b10] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={handleToggleSelectAll}
+                    disabled={selectableItemCount === 0}
+                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  Chọn tất cả
+                </label>
+                <span className="text-sm text-gray-500">
+                  Đã chọn {selectedCount}/{selectableItemCount} sản phẩm có thể thanh toán
+                </span>
+              </div>
+            )}
+
             {loading ? (
               <div className="text-center py-20">
                 <p className="text-gray-500 text-lg">Dang tai gio hang...</p>
@@ -495,8 +593,19 @@ const Cart = () => {
               flatCartItems.map((item) => (
                 <div
                   key={`${item.id}-${item.addonId || "none"}`}
-                  className="flex flex-col sm:flex-row gap-6 bg-white p-6 rounded-xl shadow-sm border border-transparent hover:border-[#e7f3e9] transition-all"
+                  className="flex flex-col sm:flex-row gap-4 sm:gap-6 bg-white p-6 rounded-xl shadow-sm border border-transparent hover:border-[#e7f3e9] transition-all"
                 >
+                  <div className="pt-1">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(item?.cartItemId && selectedSet.has(item.cartItemId))}
+                      onChange={() => handleToggleItemSelection(item?.cartItemId)}
+                      disabled={!item?.cartItemId}
+                      title={!item?.cartItemId ? "Sản phẩm này chưa đồng bộ cartItemId." : "Chọn để checkout"}
+                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary disabled:opacity-50"
+                    />
+                  </div>
+
                   <div className="shrink-0">
                     {item.img ? (
                       <div
@@ -580,7 +689,7 @@ const Cart = () => {
 
               <div className="space-y-4 mb-6">
                 <div className="flex justify-between text-sm text-gray-600">
-                  <span>Tạm tính</span>
+                  <span>Tạm tính (mục đã chọn)</span>
                   <span className="font-medium text-[#0d1b10]">
                     {formatVnd(calculatedTotal)}
                   </span>
@@ -602,17 +711,16 @@ const Cart = () => {
                 </div>
               </div>
 
-              <Link to="/checkout">
-                <button
-                  disabled={flatCartItems.length === 0}
-                  className="w-full bg-primary disabled:bg-gray-300 text-[#102213] text-lg font-bold py-3.5 rounded-lg hover:bg-[#10d430] active:scale-[0.99] transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
-                >
-                  <span>Thanh toán</span>
-                  <span className="material-symbols-outlined text-[20px]">
-                    arrow_forward
-                  </span>
-                </button>
-              </Link>
+              <button
+                onClick={handleProceedCheckout}
+                disabled={selectedCount === 0}
+                className="w-full bg-primary disabled:bg-gray-300 text-[#102213] text-lg font-bold py-3.5 rounded-lg hover:bg-[#10d430] active:scale-[0.99] transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+              >
+                <span>Thanh toán mục đã chọn</span>
+                <span className="material-symbols-outlined text-[20px]">
+                  arrow_forward
+                </span>
+              </button>
             </div>
           </div>
         </div>

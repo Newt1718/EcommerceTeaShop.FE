@@ -52,6 +52,8 @@ const Routers = () => {
         { path: "about", element: <About /> },
         { path: "checkout", element: <Checkout /> },
         { path: "payment-return", element: <Checkout /> },
+        { path: "payment/cancel", element: <Checkout /> },
+        { path: "payment/success", element: <Checkout /> },
         { path: "journal", element: <Journal /> },
         { path: "journal/:id", element: <JournalDetails /> },
         { path: "contact", element: <Contact /> },
