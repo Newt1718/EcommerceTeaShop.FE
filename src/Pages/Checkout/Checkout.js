@@ -470,8 +470,26 @@ const Checkout = () => {
         return;
       }
 
+      const configuredOrigin = (process.env.REACT_APP_FRONTEND_URL || "").replace(/\/$/, "");
+      const browserOrigin = (window.location.origin || "").replace(/\/$/, "");
+
+      // Prevent production users from being redirected to localhost when env is misconfigured.
+      const isConfiguredLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(
+        configuredOrigin,
+      );
+      const isBrowserLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(
+        browserOrigin,
+      );
+
       const appOrigin =
-        (process.env.REACT_APP_FRONTEND_URL || window.location.origin || "").replace(/\/$/, "");
+        configuredOrigin && !(isConfiguredLocalhost && !isBrowserLocalhost)
+          ? configuredOrigin
+          : browserOrigin;
+
+      if (!appOrigin) {
+        toast.error("Khong xac dinh duoc domain de quay lai sau thanh toan.");
+        return;
+      }
 
       const response = await checkoutOrderApi({
         addressId: selectedAddress.id,
@@ -486,6 +504,32 @@ const Checkout = () => {
       toast.success(response?.message || "Dat hang thanh cong.");
 
       if (checkoutUrl) {
+        try {
+          const parsedCheckoutUrl = new URL(checkoutUrl);
+          const checkoutHost = (parsedCheckoutUrl.hostname || "").toLowerCase();
+          const browserHost = (window.location.hostname || "").toLowerCase();
+          const isCheckoutLocalhost = checkoutHost === "localhost" || checkoutHost === "127.0.0.1";
+          const isBrowserLocalhostHost = browserHost === "localhost" || browserHost === "127.0.0.1";
+
+          if (isCheckoutLocalhost && !isBrowserLocalhostHost) {
+            toast.error("Lien ket thanh toan tra ve localhost. Vui long kiem tra cau hinh backend callback URL.");
+            return;
+          }
+
+          const callbackKeys = ["returnUrl", "successUrl", "cancelUrl"];
+          const hasLocalhostCallback = callbackKeys.some((key) => {
+            const value = parsedCheckoutUrl.searchParams.get(key) || "";
+            return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(value);
+          });
+
+          if (hasLocalhostCallback && !isBrowserLocalhostHost) {
+            toast.error("Callback thanh toan dang tro ve localhost. Vui long cap nhat callback URL tren backend/cong thanh toan.");
+            return;
+          }
+        } catch (parseCheckoutError) {
+          // Allow navigation for non-standard but valid provider URLs.
+        }
+
         window.location.href = checkoutUrl;
       }
     } catch (error) {
