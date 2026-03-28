@@ -108,6 +108,7 @@ async function request(path, options = {}) {
 
   if (!response.ok || !payload?.isSucess) {
     const error = new Error(payload?.message || "Yeu cau API that bai.");
+    error.status = response.status;
     error.payload = payload;
     throw error;
   }
@@ -460,9 +461,7 @@ export function updateCartItemApi({ cartItemId, quantity }) {
     method: "PUT",
     body: payload,
   }).catch((error) => {
-    const statusText = String(error?.payload?.message || error?.message || "");
-
-    if (!statusText.includes("405")) {
+    if (Number(error?.status) !== 405) {
       throw error;
     }
 
@@ -470,11 +469,7 @@ export function updateCartItemApi({ cartItemId, quantity }) {
       method: "PATCH",
       body: payload,
     }).catch((patchError) => {
-      const patchStatusText = String(
-        patchError?.payload?.message || patchError?.message || "",
-      );
-
-      if (!patchStatusText.includes("405")) {
+      if (Number(patchError?.status) !== 405) {
         throw patchError;
       }
 

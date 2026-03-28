@@ -470,9 +470,16 @@ const Checkout = () => {
         return;
       }
 
+      const appOrigin =
+        (process.env.REACT_APP_FRONTEND_URL || window.location.origin || "").replace(/\/$/, "");
+
       const response = await checkoutOrderApi({
         addressId: selectedAddress.id,
         cartItemIds,
+        returnUrl: `${appOrigin}/payment/success`,
+        successUrl: `${appOrigin}/payment/success`,
+        cancelUrl: `${appOrigin}/payment/cancel`,
+        frontendUrl: appOrigin,
       });
 
       const checkoutUrl = response?.data?.checkoutUrl;

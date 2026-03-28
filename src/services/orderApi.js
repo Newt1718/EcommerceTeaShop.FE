@@ -68,15 +68,37 @@ async function request(path, options = {}) {
   return payload;
 }
 
-export function checkoutOrderApi({ addressId, cartItemIds }) {
+export function checkoutOrderApi({
+  addressId,
+  cartItemIds,
+  returnUrl,
+  cancelUrl,
+  successUrl,
+  frontendUrl,
+}) {
   ensureAuthenticated();
+
+  const payload = {
+    addressId,
+    cartItemIds,
+  };
+
+  if (returnUrl) {
+    payload.returnUrl = returnUrl;
+  }
+  if (cancelUrl) {
+    payload.cancelUrl = cancelUrl;
+  }
+  if (successUrl) {
+    payload.successUrl = successUrl;
+  }
+  if (frontendUrl) {
+    payload.frontendUrl = frontendUrl;
+  }
 
   return request("/order/checkout", {
     method: "POST",
-    body: JSON.stringify({
-      addressId,
-      cartItemIds,
-    }),
+    body: JSON.stringify(payload),
   });
 }
 
