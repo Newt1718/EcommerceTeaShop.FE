@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import { addAddressApi, getAddressesApi } from "../../services/addressApi";
-import { getCartApi, normalizeCartProducts } from "../../services/cartApi";
+import { getCartApi, normalizeCartProducts, removeCartItemApi } from "../../services/cartApi";
 import { checkoutOrderApi } from "../../services/orderApi";
 import { getProductDetailApi, getProductsApi } from "../../services/productApi";
 import { clearCart, setCartProducts } from "../../redux/cartSlice/cartSlice";
@@ -12,6 +12,7 @@ const formatVnd = (value) => `${Number(value || 0).toLocaleString("vi-VN")}đ`;
 const FALLBACK_PRODUCT_IMAGE =
   "https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=800&q=80";
 const CHECKOUT_SELECTED_ITEMS_KEY = "checkoutSelectedCartItemIds";
+const CHECKOUT_PENDING_ITEMS_KEY = "checkoutPendingCartItemIds";
 
 const getItemUnitPrice = (item) => Number(item?.unitPrice || 0);
 
@@ -336,12 +337,55 @@ const Checkout = () => {
       status === "paid";
 
     if (isSuccess) {
-      sessionStorage.removeItem(CHECKOUT_SELECTED_ITEMS_KEY);
-      dispatch(clearCart());
-      toast.success("Thanh toán thành công.");
-      navigate("/", { replace: true });
+      const finalizeSuccessfulPayment = async () => {
+        let pendingCartItemIds = [];
+        try {
+          const rawPending = sessionStorage.getItem(CHECKOUT_PENDING_ITEMS_KEY);
+          const parsedPending = rawPending ? JSON.parse(rawPending) : [];
+          pendingCartItemIds = Array.isArray(parsedPending)
+            ? parsedPending.filter(Boolean)
+            : [];
+        } catch (error) {
+          pendingCartItemIds = [];
+        }
+
+        if (pendingCartItemIds.length > 0) {
+          const removeResults = await Promise.allSettled(
+            pendingCartItemIds.map((cartItemId) => removeCartItemApi(cartItemId)),
+          );
+
+          const hasHardRemoveError = removeResults.some((result) => {
+            if (result.status !== "rejected") {
+              return false;
+            }
+
+            const status = Number(result.reason?.status || 0);
+            return ![400, 404, 409].includes(status);
+          });
+
+          if (hasHardRemoveError) {
+            toast.warning("Don hang da thanh toan, dang dong bo gio hang...");
+          }
+        }
+
+        try {
+          const latestCartResponse = await getCartApi();
+          const normalizedLatestCart = normalizeCartProducts(latestCartResponse?.data);
+          dispatch(setCartProducts(normalizedLatestCart));
+        } catch (error) {
+          dispatch(clearCart());
+        }
+
+        sessionStorage.removeItem(CHECKOUT_SELECTED_ITEMS_KEY);
+        sessionStorage.removeItem(CHECKOUT_PENDING_ITEMS_KEY);
+        toast.success("Thanh toán thành công.");
+        navigate("/", { replace: true });
+      };
+
+      finalizeSuccessfulPayment();
       return;
     } else {
+      sessionStorage.removeItem(CHECKOUT_PENDING_ITEMS_KEY);
       toast.info("Bạn đã hủy hoặc chưa hoàn tất thanh toán.");
       navigate("/", { replace: true });
       return;
@@ -468,6 +512,12 @@ const Checkout = () => {
       if (cartItemIds.length === 0) {
         toast.error("Khong tim thay san pham hop le trong gio hang de thanh toan.");
         return;
+      }
+
+      try {
+        sessionStorage.setItem(CHECKOUT_PENDING_ITEMS_KEY, JSON.stringify(cartItemIds));
+      } catch (error) {
+        // ignore storage failures and continue checkout
       }
 
       const configuredOrigin = (process.env.REACT_APP_FRONTEND_URL || "").replace(/\/$/, "");
