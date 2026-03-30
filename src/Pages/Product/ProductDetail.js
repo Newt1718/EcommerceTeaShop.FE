@@ -103,6 +103,17 @@ function getProductImages(item) {
 function normalizeProduct(item) {
   const images = getProductImages(item);
   const mainImage = images[0] || FALLBACK_IMAGE;
+  const descriptionDetail = String(item?.description || "").trim();
+  const originDetail = String(
+    item?.originDescription ||
+      item?.originDetail ||
+      item?.originInfo ||
+      item?.productOrigin ||
+      item?.originText ||
+      item?.countryOfOrigin ||
+      item?.origin ||
+      "",
+  ).trim();
   const variants = Array.isArray(item.variants) ? item.variants : [];
   const mappedVariants = variants
     .map((variant, index) => {
@@ -133,7 +144,9 @@ function normalizeProduct(item) {
     name: item.name || "Sản phẩm trà",
     type: item.categoryName || "Khác",
     origin: item.categoryName || "Khác",
-    desc: item.description || "Chưa có mô tả.",
+    desc: descriptionDetail || "Chưa có mô tả.",
+    descriptionDetail,
+    originDetail,
     img: mainImage,
     thumbnails: images.length > 0 ? images : [mainImage],
     productDetails:
@@ -211,6 +224,13 @@ const ProductDetail = () => {
         setSelectedDetail(detailProduct.productDetails[0]);
         setSelectedImage(detailProduct.thumbnails[0] || detailProduct.img || FALLBACK_IMAGE);
         setQuantity(1);
+        setActiveTab(
+          detailProduct.descriptionDetail
+            ? "Description"
+            : detailProduct.originDetail
+              ? "Origin"
+              : "Reviews",
+        );
       } catch (apiError) {
         setError(apiError?.message || "Không tải được thông tin sản phẩm.");
       } finally {
@@ -229,6 +249,8 @@ const ProductDetail = () => {
 
   const selectedDetailId = selectedProductDetail?.id;
   const selectedDetailStock = selectedProductDetail?.stockQuantity;
+  const hasDescriptionTab = Boolean(product?.descriptionDetail);
+  const hasOriginTab = Boolean(product?.originDetail);
   const selectedAddon =
     assignedAddons.find((addon) => addon.id === selectedAddonId) || null;
   const hasAssignedAddons = assignedAddons.length > 0;
@@ -530,26 +552,30 @@ const ProductDetail = () => {
 
       <div className="mt-24">
         <div className="flex border-b border-gray-200 mb-8 overflow-x-auto no-scrollbar">
-          <button
-            onClick={() => setActiveTab("Description")}
-            className={`px-8 py-4 border-b-4 whitespace-nowrap font-black ${
-              activeTab === "Description"
-                ? "border-primary text-[#0d1b10]"
-                : "border-transparent text-gray-400 hover:border-gray-300 hover:text-gray-600 font-bold"
-            }`}
-          >
-            Mô tả
-          </button>
-          <button
-            onClick={() => setActiveTab("Origin")}
-            className={`px-8 py-4 border-b-4 whitespace-nowrap ${
-              activeTab === "Origin"
-                ? "border-primary text-[#0d1b10] font-black"
-                : "border-transparent text-gray-400 hover:border-gray-300 hover:text-gray-600 font-bold"
-            }`}
-          >
-            Xuất xứ
-          </button>
+          {hasDescriptionTab && (
+            <button
+              onClick={() => setActiveTab("Description")}
+              className={`px-8 py-4 border-b-4 whitespace-nowrap font-black ${
+                activeTab === "Description"
+                  ? "border-primary text-[#0d1b10]"
+                  : "border-transparent text-gray-400 hover:border-gray-300 hover:text-gray-600 font-bold"
+              }`}
+            >
+              Mô tả
+            </button>
+          )}
+          {hasOriginTab && (
+            <button
+              onClick={() => setActiveTab("Origin")}
+              className={`px-8 py-4 border-b-4 whitespace-nowrap ${
+                activeTab === "Origin"
+                  ? "border-primary text-[#0d1b10] font-black"
+                  : "border-transparent text-gray-400 hover:border-gray-300 hover:text-gray-600 font-bold"
+              }`}
+            >
+              Xuất xứ
+            </button>
+          )}
           <button
             onClick={() => setActiveTab("Reviews")}
             className={`px-8 py-4 border-b-4 whitespace-nowrap ${
@@ -562,10 +588,10 @@ const ProductDetail = () => {
           </button>
         </div>
 
-        {activeTab === "Description" ? (
-          <Description />
-        ) : activeTab === "Origin" ? (
-          <Origin />
+        {activeTab === "Description" && hasDescriptionTab ? (
+          <Description description={product.descriptionDetail} />
+        ) : activeTab === "Origin" && hasOriginTab ? (
+          <Origin origin={product.originDetail} />
         ) : (
           <Reviews productId={id} />
         )}
