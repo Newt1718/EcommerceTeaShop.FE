@@ -51,20 +51,6 @@ function extractImageUrl(image) {
 }
 
 function getProductFirstImage(item) {
-  const directCandidates = [
-    item?.imageUrl,
-    item?.thumbnail,
-    item?.thumbnailUrl,
-    item?.coverImage,
-    item?.mainImage,
-    item?.image,
-  ];
-
-  const direct = directCandidates.find((value) => Boolean(value));
-  if (direct) {
-    return direct;
-  }
-
   const arraySources = [item?.images, item?.productImages, item?.imageResponses];
 
   for (const source of arraySources) {
@@ -80,6 +66,28 @@ function getProductFirstImage(item) {
     if (fromMain) {
       return fromMain;
     }
+  }
+
+  const directCandidates = [
+    item?.imageUrl,
+    item?.thumbnail,
+    item?.thumbnailUrl,
+    item?.coverImage,
+    item?.mainImage,
+    item?.image,
+  ];
+
+  for (const candidate of directCandidates) {
+    const resolvedCandidate = extractImageUrl(candidate);
+    if (resolvedCandidate) {
+      return resolvedCandidate;
+    }
+  }
+
+  for (const source of arraySources) {
+    if (!Array.isArray(source)) {
+      continue;
+    }
 
     for (const image of source) {
       const fromItem = extractImageUrl(image);
@@ -90,6 +98,30 @@ function getProductFirstImage(item) {
   }
 
   return null;
+}
+
+function hasReliableMainImageSignal(item) {
+  if (extractImageUrl(item?.mainImage)) {
+    return true;
+  }
+
+  const arraySources = [item?.images, item?.productImages, item?.imageResponses];
+
+  for (const source of arraySources) {
+    if (!Array.isArray(source)) {
+      continue;
+    }
+
+    const hasMainFlag = source.some((image) =>
+      Boolean(image?.isMain || image?.isPrimary || image?.isDefault || image?.isMainImage),
+    );
+
+    if (hasMainFlag) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function mapProduct(item) {
@@ -126,8 +158,9 @@ async function enrichProductsWithVariantData(items) {
       const hasBasePrice = Number(item?.price || 0) > 0;
       const hasStock = Number(item?.stockQuantity || 0) > 0;
       const hasImage = Boolean(getProductFirstImage(item));
+      const hasReliableMainImage = hasReliableMainImageSignal(item);
 
-      if ((hasBasePrice || hasStock) && hasImage) {
+      if ((hasBasePrice || hasStock) && hasImage && hasReliableMainImage) {
         return item;
       }
 
@@ -149,11 +182,20 @@ async function enrichProductsWithVariantData(items) {
         return {
           ...item,
           images:
-            detailImage && (!Array.isArray(item.images) || item.images.length === 0)
-              ? [detailImage]
-              : item.images,
-          imageUrl: item.imageUrl || detail.imageUrl || detailImage || null,
-          thumbnail: item.thumbnail || detail.thumbnail || null,
+            (Array.isArray(detail?.images) && detail.images.length > 0
+              ? detail.images
+              : Array.isArray(detail?.productImages) && detail.productImages.length > 0
+                ? detail.productImages
+                : Array.isArray(detail?.imageResponses) && detail.imageResponses.length > 0
+                  ? detail.imageResponses
+                  : Array.isArray(item?.images)
+                    ? item.images
+                    : detailImage
+                      ? [detailImage]
+                      : []),
+          imageUrl: detailImage || detail.mainImage || detail.imageUrl || item.imageUrl || null,
+          thumbnail: detail.thumbnail || item.thumbnail || null,
+          mainImage: detail.mainImage || item.mainImage || null,
           price: prices.length > 0 ? Math.min(...prices) : Number(item?.price || 0),
           stockQuantity:
             stocks.length > 0

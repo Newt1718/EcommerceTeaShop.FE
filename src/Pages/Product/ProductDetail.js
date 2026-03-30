@@ -44,17 +44,6 @@ function extractImageUrl(image) {
 }
 
 function getProductImages(item) {
-  const directCandidates = [
-    item?.imageUrl,
-    item?.thumbnail,
-    item?.thumbnailUrl,
-    item?.coverImage,
-    item?.mainImage,
-    item?.image,
-  ];
-
-  const direct = directCandidates.find((value) => Boolean(value));
-
   const arraySources = [item?.images, item?.productImages, item?.imageResponses];
   const mapped = [];
 
@@ -70,6 +59,30 @@ function getProductImages(item) {
     if (mainUrl) {
       mapped.push(mainUrl);
     }
+  }
+
+  const directCandidates = [
+    item?.imageUrl,
+    item?.thumbnail,
+    item?.thumbnailUrl,
+    item?.coverImage,
+    item?.mainImage,
+    item?.image,
+  ];
+
+  let direct = null;
+  for (const candidate of directCandidates) {
+    const resolvedCandidate = extractImageUrl(candidate);
+    if (resolvedCandidate) {
+      direct = resolvedCandidate;
+      break;
+    }
+  }
+
+  for (const source of arraySources) {
+    if (!Array.isArray(source)) {
+      continue;
+    }
 
     source.forEach((image) => {
       const url = extractImageUrl(image);
@@ -80,7 +93,7 @@ function getProductImages(item) {
   }
 
   if (direct) {
-    mapped.unshift(direct);
+    mapped.push(direct);
   }
 
   const unique = Array.from(new Set(mapped.filter(Boolean)));

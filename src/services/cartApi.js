@@ -162,22 +162,6 @@ function extractImageUrl(image) {
 }
 
 function extractProductImage(data) {
-  const directCandidates = [
-    data?.imageUrl,
-    data?.thumbnail,
-    data?.thumbnailUrl,
-    data?.coverImage,
-    data?.mainImage,
-    data?.image,
-    data?.imagePath,
-    data?.filePath,
-  ];
-
-  const direct = directCandidates.find((value) => Boolean(value));
-  if (direct) {
-    return direct;
-  }
-
   const imageLists = [
     data?.images,
     data?.productImages,
@@ -197,6 +181,30 @@ function extractProductImage(data) {
     const preferredUrl = extractImageUrl(preferred);
     if (preferredUrl) {
       return preferredUrl;
+    }
+  }
+
+  const directCandidates = [
+    data?.imageUrl,
+    data?.thumbnail,
+    data?.thumbnailUrl,
+    data?.coverImage,
+    data?.mainImage,
+    data?.image,
+    data?.imagePath,
+    data?.filePath,
+  ];
+
+  for (const candidate of directCandidates) {
+    const resolvedCandidate = extractImageUrl(candidate);
+    if (resolvedCandidate) {
+      return resolvedCandidate;
+    }
+  }
+
+  for (const list of imageLists) {
+    if (!Array.isArray(list)) {
+      continue;
     }
 
     for (const image of list) {
