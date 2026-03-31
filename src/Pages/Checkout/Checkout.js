@@ -484,6 +484,12 @@ const Checkout = () => {
   const handleCheckout = async () => {
     if (!isAuthenticated) {
       toast.error("Vui long dang nhap de dat hang.");
+      navigate("/login", {
+        state: {
+          from: "/checkout",
+          redirectAfterLogin: "/checkout",
+        },
+      });
       return;
     }
 

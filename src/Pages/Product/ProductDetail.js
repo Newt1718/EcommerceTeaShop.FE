@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import Description from "./Description";
 import Origin from "./Origin";
 import Reviews from "./Reviews";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { setCartProducts } from "../../redux/cartSlice/cartSlice.js";
 import { getProductDetailApi, getProductsApi } from "../../services/productApi";
 import { getAddonsByProductApi } from "../../services/addonApi";
@@ -179,6 +179,8 @@ function normalizeAddon(addon) {
 
 const ProductDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const isAuthenticated = useSelector((state) => Boolean(state.auth?.isAuthenticated));
   const [allProducts, setAllProducts] = useState([]);
   const [product, setProduct] = useState(null);
   const [selectedDetail, setSelectedDetail] = useState(null);
@@ -201,11 +203,22 @@ const ProductDetail = () => {
         setLoading(true);
         setError("");
 
-        const [detailResponse, listResponse, addonResponse] = await Promise.all([
+        const [detailResult, listResult, addonResult] = await Promise.allSettled([
           getProductDetailApi(id),
           getProductsApi({ pageNumber: 1, pageSize: 100 }),
           getAddonsByProductApi(id),
         ]);
+
+        if (detailResult.status !== "fulfilled") {
+          throw detailResult.reason;
+        }
+
+        if (listResult.status !== "fulfilled") {
+          throw listResult.reason;
+        }
+
+        const detailResponse = detailResult.value;
+        const listResponse = listResult.value;
 
         const mappedList = (listResponse?.data?.items || []).map(normalizeProduct);
         setAllProducts(mappedList);
@@ -213,7 +226,10 @@ const ProductDetail = () => {
         const detailData = detailResponse?.data || {};
         const detailProduct = normalizeProduct(detailData);
 
-        const addonItems = Array.isArray(addonResponse?.data) ? addonResponse.data : [];
+        const addonItems =
+          addonResult.status === "fulfilled" && Array.isArray(addonResult.value?.data)
+            ? addonResult.value.data
+            : [];
         const normalizedAddons = addonItems.map(normalizeAddon).filter((addon) => addon.id);
 
         setProduct(detailProduct);
@@ -264,6 +280,17 @@ const ProductDetail = () => {
 
   const handleAddToCart = async () => {
     if (!product || !selectedProductDetail) {
+      return;
+    }
+
+    if (!isAuthenticated) {
+      toast.info("Vui lòng đăng nhập để mua hàng.");
+      navigate("/login", {
+        state: {
+          from: `/product/${id}`,
+          redirectAfterLogin: `/product/${id}`,
+        },
+      });
       return;
     }
 

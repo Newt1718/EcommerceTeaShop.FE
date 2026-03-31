@@ -126,6 +126,33 @@ function mapCategoryCard(item) {
   };
 }
 
+function deriveCategoryCardsFromProducts(products) {
+  const list = Array.isArray(products) ? products : [];
+  const byName = new Map();
+
+  list.forEach((item, index) => {
+    const name = String(item?.categoryName || "").trim();
+    if (!name) {
+      return;
+    }
+
+    if (byName.has(name)) {
+      return;
+    }
+
+    const fallbackId = item?.categoryId || item?.categoryID || `derived-category-${index}`;
+
+    byName.set(name, {
+      id: String(fallbackId || name),
+      name,
+      imageUrl: null,
+      hasImage: false,
+    });
+  });
+
+  return Array.from(byName.values());
+}
+
 function mapFavoriteProduct(item) {
   const purchaseCount = getPurchaseCount(item);
 
@@ -225,17 +252,52 @@ const Home = () => {
       setCategoriesLoading(true);
       try {
         const response = await getCategoriesApi({ pageNumber: 1, pageSize: 20 });
-        const apiItems = response?.data?.items || [];
+        const apiItems = Array.isArray(response?.data?.items)
+          ? response.data.items
+          : Array.isArray(response?.data)
+            ? response.data
+            : [];
         const mapped = apiItems.map(mapCategoryCard).filter((item) => item.id && item.name);
 
+        if (mapped.length > 0) {
+          if (mounted) {
+            setCategories(mapped);
+            setCategoryPage(1);
+          }
+          return;
+        }
+
+        const productResponse = await getProductsApi({ pageNumber: 1, pageSize: 100 });
+        const productItems = Array.isArray(productResponse?.data?.items)
+          ? productResponse.data.items
+          : Array.isArray(productResponse?.data)
+            ? productResponse.data
+            : [];
+        const derived = deriveCategoryCardsFromProducts(productItems);
+
         if (mounted) {
-          setCategories(mapped);
+          setCategories(derived);
           setCategoryPage(1);
         }
       } catch (error) {
-        if (mounted) {
-          setCategories([]);
-          setCategoryPage(1);
+        try {
+          const productResponse = await getProductsApi({ pageNumber: 1, pageSize: 100 });
+          const productItems = Array.isArray(productResponse?.data?.items)
+            ? productResponse.data.items
+            : Array.isArray(productResponse?.data)
+              ? productResponse.data
+              : [];
+          const derived = deriveCategoryCardsFromProducts(productItems);
+
+          if (mounted) {
+            setCategories(derived);
+            setCategoryPage(1);
+          }
+        } catch (fallbackError) {
+          if (mounted) {
+            setCategories([]);
+            setCategoryPage(1);
+          }
         }
       } finally {
         if (mounted) {
@@ -325,7 +387,7 @@ const Home = () => {
                   <div className="absolute inset-0 bg-gradient-to-br from-slate-700 via-slate-600 to-slate-500"></div>
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.2),transparent_45%)]"></div>
                   <div className="absolute top-4 right-4 rounded-full bg-white/20 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
-                    Coming soon
+                      Unavailable
                   </div>
                 </>
               )}

@@ -48,7 +48,18 @@ const Routers = () => {
         { index: true, element: <Home /> },
         { path: "profile", element: <ProfileOverview /> },
         { path: "profile/edit", element: <EditProfile /> },
-        { path: "cart", element: <Cart /> },
+        {
+          path: "cart",
+          element: isAuthenticated ? (
+            <Cart />
+          ) : (
+            <Navigate
+              to="/login"
+              replace
+              state={{ from: "/cart", redirectAfterLogin: "/cart" }}
+            />
+          ),
+        },
         { path: "about", element: <About /> },
         { path: "checkout", element: <Checkout /> },
         { path: "payment-return", element: <Checkout /> },

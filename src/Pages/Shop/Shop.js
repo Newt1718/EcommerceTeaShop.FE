@@ -18,13 +18,6 @@ const FALLBACK_TEA_TYPES = [
 ];
 
 const ITEMS_PER_PAGE = 6;
-const PUBLIC_API_BLOCKED_MESSAGE =
-  "Du lieu san pham tam thoi chua duoc mo cong khai. Vui long quay lai sau.";
-
-function isUnauthorizedError(error) {
-  const message = String(error?.message || "").toLowerCase();
-  return message.includes("401") || message.includes("unauthorized");
-}
 
 function extractImageUrl(image) {
   if (!image) {
@@ -251,7 +244,6 @@ const Shop = () => {
   const [appliedKeyword, setAppliedKeyword] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [publicApiBlocked, setPublicApiBlocked] = useState(false);
 
   const handleReset = () => {
     setCurrentPage(1);
@@ -270,37 +262,21 @@ const Shop = () => {
 
   useEffect(() => {
     const loadCategories = async () => {
-      if (publicApiBlocked) {
-        setCategories([]);
-        return;
-      }
-
       try {
         const response = await getCategoriesApi({ pageNumber: 1, pageSize: 50 });
         const items = response?.data?.items || [];
         setCategories(items);
       } catch (apiError) {
-        if (isUnauthorizedError(apiError)) {
-          setPublicApiBlocked(true);
-          return;
-        }
         console.log("[Shop] Không tải được category API, dùng fallback.");
         setCategories([]);
       }
     };
 
     loadCategories();
-  }, [publicApiBlocked]);
+  }, []);
 
   useEffect(() => {
     const loadProducts = async () => {
-      if (publicApiBlocked) {
-        setProducts([]);
-        setError(PUBLIC_API_BLOCKED_MESSAGE);
-        setLoading(false);
-        return;
-      }
-
       try {
         setLoading(true);
         setError("");
@@ -348,19 +324,14 @@ const Shop = () => {
         setProducts(enrichedItems.map(mapProduct));
       } catch (apiError) {
         setProducts([]);
-        if (isUnauthorizedError(apiError)) {
-          setPublicApiBlocked(true);
-          setError(PUBLIC_API_BLOCKED_MESSAGE);
-        } else {
-          setError(apiError?.message || "Khong tai duoc danh sach san pham.");
-        }
+        setError(apiError?.message || "Khong tai duoc danh sach san pham.");
       } finally {
         setLoading(false);
       }
     };
 
     loadProducts();
-  }, [appliedKeyword, selectedTypes, categories, publicApiBlocked]);
+  }, [appliedKeyword, selectedTypes, categories]);
 
   const teaTypes = useMemo(() => {
     const categoryTypes = categories.map((item) => item.name).filter(Boolean);

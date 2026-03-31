@@ -234,6 +234,7 @@ const Cart = () => {
 
   // 1. Get data from Redux
   const products = useSelector((state) => state.cart.products);
+  const isAuthenticated = useSelector((state) => Boolean(state.auth?.isAuthenticated));
 
   const loadCart = useCallback(async () => {
     try {
@@ -351,8 +352,19 @@ const Cart = () => {
   }, [dispatch]);
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      navigate("/login", {
+        replace: true,
+        state: {
+          from: "/cart",
+          redirectAfterLogin: "/cart",
+        },
+      });
+      return;
+    }
+
     loadCart();
-  }, [loadCart]);
+  }, [isAuthenticated, loadCart, navigate]);
 
   const handleIncreaseQuantity = async (item) => {
     if (item?.cartItemId) {
@@ -505,6 +517,17 @@ const Cart = () => {
   };
 
   const handleProceedCheckout = () => {
+    if (!isAuthenticated) {
+      toast.info("Vui lòng đăng nhập để tiếp tục thanh toán.");
+      navigate("/login", {
+        state: {
+          from: "/cart",
+          redirectAfterLogin: "/checkout",
+        },
+      });
+      return;
+    }
+
     if (selectedCartItemIds.length === 0) {
       toast.warning("Vui lòng chọn ít nhất 1 sản phẩm để thanh toán.");
       return;
