@@ -31,6 +31,8 @@ const isSameDetailLine = (detailA, detailB) => {
 };
 
 const getItemUnitPrice = (item) => Number(item?.unitPrice || 0);
+const getItemLineTotal = (item) =>
+  getItemUnitPrice(item) * Number(item?.quantity || 0);
 
 function normalizeText(value) {
   return String(value || "")
@@ -667,9 +669,14 @@ const Cart = () => {
                           <p className="text-gray-500 text-sm font-normal mt-1">Khong thiet ke</p>
                         )}
                       </div>
-                      <p className="text-[#0d1b10] text-lg font-bold">
-                        {formatVnd(getItemUnitPrice(item))}
-                      </p>
+                      <div className="text-right">
+                        <p className="text-[#0d1b10] text-lg font-bold">
+                          {formatVnd(getItemLineTotal(item))}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {formatVnd(getItemUnitPrice(item))} x {Number(item.quantity || 0)}
+                        </p>
+                      </div>
                     </div>
 
                     <div className="flex justify-between items-end mt-4 sm:mt-0">

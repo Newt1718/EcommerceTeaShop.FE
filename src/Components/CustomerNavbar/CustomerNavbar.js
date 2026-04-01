@@ -49,14 +49,15 @@ const CustomerNavbar = () => {
           <div className="flex items-center gap-8">
             <Link
               to="/"
-              className="flex items-center gap-2 text-[#0d1b10] group"
+              className="flex items-center text-[#0d1b10] group"
             >
-              <div className="w-8 h-8 bg-primary/20 text-primary flex items-center justify-center rounded-md font-bold tracking-tighter">
-                TV
-              </div>
-              <h2 className="text-xl font-bold leading-tight tracking-tight group-hover:text-primary transition-colors">
-                Tea Vault
-              </h2>
+              <span className="relative block h-10 md:h-12 w-[120px] overflow-hidden">
+                <img
+                  src="/logotea.png"
+                  alt="Tea Vault"
+                  className="absolute inset-0 h-full w-full object-contain scale-[2.15] origin-center"
+                />
+              </span>
             </Link>
 
             <nav className="hidden md:flex items-center gap-8">

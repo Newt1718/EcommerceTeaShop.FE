@@ -14,9 +14,19 @@ function readAddonMetaMap() {
   try {
     const raw = localStorage.getItem(CART_ADDON_META_KEY);
     const parsed = raw ? JSON.parse(raw) : {};
-    return parsed && typeof parsed === "object" ? parsed : {};
+    if (!parsed || typeof parsed !== "object") {
+      return { byCartItemId: {} };
+    }
+
+    if (parsed.byCartItemId && typeof parsed.byCartItemId === "object") {
+      return {
+        byCartItemId: parsed.byCartItemId,
+      };
+    }
+
+    return { byCartItemId: {} };
   } catch (error) {
-    return {};
+    return { byCartItemId: {} };
   }
 }
 
@@ -28,19 +38,21 @@ function writeAddonMetaMap(nextMap) {
   }
 }
 
-function cacheAddonMetaForVariant({
+function cacheAddonMetaForCartItem({
+  cartItemId,
   productVariantId,
   addonId,
   addonName,
   addonPrice,
   unitPrice,
 }) {
-  if (!productVariantId || !addonId) {
+  if (!cartItemId || !addonId) {
     return;
   }
 
   const map = readAddonMetaMap();
-  map[String(productVariantId)] = {
+  map.byCartItemId[String(cartItemId)] = {
+    productVariantId: productVariantId ? String(productVariantId) : null,
     addonId: String(addonId),
     addonName: addonName || null,
     addonPrice: toNumber(addonPrice, 0),
@@ -218,7 +230,7 @@ function extractProductImage(data) {
   return null;
 }
 
-function normalizeCartItem(rawItem, index) {
+function normalizeCartItem(rawItem, index, addonMetaMap) {
   const productCandidates = [
     rawItem?.product,
     rawItem?.productInfo,
@@ -269,9 +281,10 @@ function normalizeCartItem(rawItem, index) {
     ) ||
     `variant-${index}`;
 
-  const cachedAddonMeta = readAddonMetaMap()[String(variantId)] || null;
-
   const cartItemId = pickField(rawItem, ["cartItemId", "cartDetailId", "id"], null);
+  const cachedAddonMeta = cartItemId
+    ? addonMetaMap?.byCartItemId?.[String(cartItemId)] || null
+    : null;
 
   const quantity = toNumber(
     pickFromMany([rawItem, ...variantCandidates], ["quantity", "qty", "count", "amount"], 1),
@@ -376,15 +389,137 @@ function normalizeCartItem(rawItem, index) {
   };
 }
 
-export function normalizeCartProducts(cartData) {
-  const items = Array.isArray(cartData)
-    ? cartData
-    : cartData?.items || cartData?.cartItems || cartData?.details || [];
+function getRawCartItems(cartData) {
+  if (Array.isArray(cartData)) {
+    return cartData;
+  }
 
+  return cartData?.items || cartData?.cartItems || cartData?.details || [];
+}
+
+function getRawCartItemId(rawItem) {
+  return pickField(rawItem, ["cartItemId", "cartDetailId", "id"], null);
+}
+
+function getRawVariantId(rawItem) {
+  return (
+    pickFromMany(
+      [rawItem, rawItem?.variant, rawItem?.productVariant, rawItem?.detail],
+      ["productVariantId", "productVariantID", "variantId", "variantID", "productDetailId", "id"],
+      null,
+    ) || null
+  );
+}
+
+function resolveCartItemIdFromSnapshot({
+  snapshotData,
+  targetVariantId,
+  targetAddonId,
+  targetUnitPrice,
+  addonMetaMap,
+}) {
+  const items = getRawCartItems(snapshotData);
+  if (!Array.isArray(items) || !items.length) {
+    return null;
+  }
+
+  const normalizedTargetVariantId = String(targetVariantId || "");
+  const normalizedTargetAddonId = String(targetAddonId || "");
+  const normalizedUnitPrice = toNumber(targetUnitPrice, 0);
+
+  const existingMetaEntries = Object.entries(addonMetaMap?.byCartItemId || {});
+
+  const existingMatch = existingMetaEntries.find(([, meta]) => {
+    return (
+      String(meta?.productVariantId || "") === normalizedTargetVariantId &&
+      String(meta?.addonId || "") === normalizedTargetAddonId
+    );
+  });
+
+  if (existingMatch?.[0]) {
+    const existingCartItemId = String(existingMatch[0]);
+    const stillInCart = items.some(
+      (rawItem) => String(getRawCartItemId(rawItem) || "") === existingCartItemId,
+    );
+
+    if (stillInCart) {
+      return existingCartItemId;
+    }
+  }
+
+  const mappedCartItemIds = new Set(existingMetaEntries.map(([cartItemId]) => String(cartItemId)));
+
+  const candidates = items
+    .map((rawItem) => {
+      const cartItemId = getRawCartItemId(rawItem);
+      const variantId = getRawVariantId(rawItem);
+      if (!cartItemId || !variantId) {
+        return null;
+      }
+
+      if (String(variantId) !== normalizedTargetVariantId) {
+        return null;
+      }
+
+      const quantity = toNumber(pickField(rawItem, ["quantity", "qty", "count", "amount"], 1), 1);
+      const baseUnit = toNumber(
+        pickField(rawItem, ["unitPrice", "price", "variantPrice", "basePrice", "itemPrice", "productPrice"], 0),
+        0,
+      );
+      const lineTotal = toNumber(
+        pickField(rawItem, ["lineTotal", "totalPrice", "totalAmount", "amount", "subtotal", "lineAmount", "finalPrice"], Number.NaN),
+        Number.NaN,
+      );
+
+      const effectiveUnit = Number.isFinite(lineTotal) && quantity > 0 ? lineTotal / quantity : baseUnit;
+
+      return {
+        cartItemId: String(cartItemId),
+        effectiveUnit,
+      };
+    })
+    .filter(Boolean);
+
+  if (!candidates.length) {
+    return null;
+  }
+
+  const unmappedCandidates = candidates.filter((candidate) => !mappedCartItemIds.has(candidate.cartItemId));
+  const pool = unmappedCandidates.length ? unmappedCandidates : candidates;
+
+  if (normalizedUnitPrice > 0) {
+    const unitMatched = pool.find(
+      (candidate) => Math.abs(toNumber(candidate.effectiveUnit, 0) - normalizedUnitPrice) < 0.001,
+    );
+    if (unitMatched) {
+      return unitMatched.cartItemId;
+    }
+  }
+
+  const numericSorted = [...pool].sort((a, b) => toNumber(b.cartItemId, 0) - toNumber(a.cartItemId, 0));
+  return numericSorted[0]?.cartItemId || pool[pool.length - 1]?.cartItemId || null;
+}
+
+export function normalizeCartProducts(cartData) {
+  const items = getRawCartItems(cartData);
+
+  const addonMetaMap = readAddonMetaMap();
   const groupedMap = new Map();
 
   items.forEach((rawItem, index) => {
-    const normalized = normalizeCartItem(rawItem, index);
+    const normalized = normalizeCartItem(rawItem, index, addonMetaMap);
+
+    if (normalized?.detail?.cartItemId && normalized?.detail?.addonId) {
+      cacheAddonMetaForCartItem({
+        cartItemId: normalized.detail.cartItemId,
+        productVariantId: normalized.detail.productVariantId,
+        addonId: normalized.detail.addonId,
+        addonName: normalized.detail.addonName,
+        addonPrice: normalized.detail.addonPrice,
+        unitPrice: normalized.detail.unitPrice,
+      });
+    }
+
     const existing = groupedMap.get(normalized.productId);
 
     if (!existing) {
@@ -420,7 +555,7 @@ export function getCartApi() {
   });
 }
 
-export function addCartItemApi({
+export async function addCartItemApi({
   productVariantId,
   addonId,
   addonName,
@@ -439,20 +574,52 @@ export function addCartItemApi({
     body.addonId = addonId;
     body.productAddonId = addonId;
     body.designId = addonId;
-
-    cacheAddonMetaForVariant({
-      productVariantId,
-      addonId,
-      addonName,
-      addonPrice,
-      unitPrice,
-    });
   }
 
-  return request("/cart/add", {
+  const response = await request("/cart/add", {
     method: "POST",
     body: JSON.stringify(body),
   });
+
+  if (addonId) {
+    const responseData = response?.data;
+    const cartItemId =
+      pickFromMany(
+        [responseData, responseData?.item, responseData?.cartItem, responseData?.detail],
+        ["cartItemId", "cartDetailId", "id"],
+        null,
+      ) || null;
+
+    let resolvedCartItemId = cartItemId;
+
+    if (!resolvedCartItemId) {
+      try {
+        const snapshot = await request("/cart", { method: "GET" });
+        resolvedCartItemId = resolveCartItemIdFromSnapshot({
+          snapshotData: snapshot?.data,
+          targetVariantId: productVariantId,
+          targetAddonId: addonId,
+          targetUnitPrice: unitPrice,
+          addonMetaMap: readAddonMetaMap(),
+        });
+      } catch (error) {
+        resolvedCartItemId = null;
+      }
+    }
+
+    if (resolvedCartItemId) {
+      cacheAddonMetaForCartItem({
+        cartItemId: resolvedCartItemId,
+        productVariantId: productVariantId || null,
+        addonId,
+        addonName,
+        addonPrice,
+        unitPrice,
+      });
+    }
+  }
+
+  return response;
 }
 
 export function updateCartItemApi({ cartItemId, quantity }) {

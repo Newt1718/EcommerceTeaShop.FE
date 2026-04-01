@@ -7,16 +7,14 @@ const CustomerFooter = () => {
     <footer className="bg-surface-light pt-16 pb-8 px-4 md:px-10 border-t border-primary/10 mt-auto text-[#0d1b10] font-display">
       <div className="max-w-[1440px] mx-auto grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
         <div className="col-span-1 flex flex-col gap-4">
-          <Link to="/" className="flex items-center gap-2 group">
-            <div className="grid grid-cols-2 gap-[2px] w-6 h-6 pt-1">
-              <div className="bg-primary rounded-sm h-full w-full"></div>
-              <div className="bg-transparent h-full w-full"></div>
-              <div className="bg-primary rounded-sm h-full w-full"></div>
-              <div className="bg-primary rounded-sm h-full w-full"></div>
-            </div>
-            <h2 className="text-xl font-black leading-tight tracking-tight group-hover:text-primary transition-colors">
-              Tea Vault
-            </h2>
+          <Link to="/" className="inline-flex items-center group w-fit">
+            <span className="relative block h-20 md:h-24 w-[190px] overflow-hidden">
+              <img
+                src="/logotea.png"
+                alt="Tea Vault"
+                className="absolute inset-0 h-full w-full object-contain scale-[2.2] origin-center transition-transform duration-300 group-hover:scale-[2.3]"
+              />
+            </span>
           </Link>
           <p className="text-sm text-gray-500 mt-2 pr-4">
             Trà cao cấp từ các nhà trồng nghệ nhân thật sự.
