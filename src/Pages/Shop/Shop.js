@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import ProductGrid from "./ProductGrid";
 import Pagination from "../../Components/Pagination/Pagination";
@@ -218,6 +218,21 @@ function normalizeText(value) {
     .trim();
 }
 
+function normalizeCompactText(value) {
+  return normalizeText(value).replace(/\s+/g, "");
+}
+
+function isSameCategoryName(left, right) {
+  const normalizedLeft = normalizeText(left);
+  const normalizedRight = normalizeText(right);
+
+  if (normalizedLeft && normalizedLeft === normalizedRight) {
+    return true;
+  }
+
+  return normalizeCompactText(left) === normalizeCompactText(right);
+}
+
 function matchesCategoryKey(type, categoryKey) {
   const normalizedType = normalizeText(type);
   const key = normalizeText(categoryKey);
@@ -235,6 +250,7 @@ function matchesCategoryKey(type, categoryKey) {
 
 const Shop = () => {
   const location = useLocation();
+  const handledCategorySearchRef = useRef("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedTypes, setSelectedTypes] = useState([]);
   const [sortBy, setSortBy] = useState("Nổi bật");
@@ -285,7 +301,7 @@ const Shop = () => {
 
         if (selectedTypes.length === 1) {
           const selectedCategory = categories.find(
-            (cat) => cat.name === selectedTypes[0],
+            (cat) => isSameCategoryName(cat.name, selectedTypes[0]),
           );
 
           if (selectedCategory?.categoryId) {
@@ -306,7 +322,9 @@ const Shop = () => {
 
         if (selectedTypes.length > 1) {
           sourceItems = sourceItems.filter((item) =>
-            selectedTypes.includes(item.categoryName || "Khác"),
+            selectedTypes.some((type) =>
+              isSameCategoryName(type, item.categoryName || "Khác"),
+            ),
           );
         }
 
@@ -360,11 +378,42 @@ const Shop = () => {
   const activeFilters = [...selectedTypes];
 
   useEffect(() => {
+    if (!teaTypes.length) {
+      return;
+    }
+
+    setSelectedTypes((prev) => {
+      if (!prev.length) {
+        return prev;
+      }
+
+      const remapped = prev
+        .map(
+          (selectedType) =>
+            teaTypes.find((type) => isSameCategoryName(type, selectedType)) ||
+            selectedType,
+        )
+        .filter((value, index, array) => array.indexOf(value) === index);
+
+      const isUnchanged =
+        remapped.length === prev.length &&
+        remapped.every((value, index) => value === prev[index]);
+
+      return isUnchanged ? prev : remapped;
+    });
+  }, [teaTypes]);
+
+  useEffect(() => {
+    if (handledCategorySearchRef.current === location.search) {
+      return;
+    }
+
     const params = new URLSearchParams(location.search);
     const categoryKey = params.get("categoryKey");
     const categoryFromQuery = params.get("category");
 
     if (!categoryFromQuery && !categoryKey) {
+      handledCategorySearchRef.current = location.search;
       return;
     }
 
@@ -375,9 +424,8 @@ const Shop = () => {
     }
 
     if (!matchedType && categoryFromQuery) {
-      const normalizedQuery = normalizeText(categoryFromQuery);
       matchedType = teaTypes.find(
-        (type) => normalizeText(type) === normalizedQuery,
+        (type) => isSameCategoryName(type, categoryFromQuery),
       );
     }
 
@@ -385,13 +433,10 @@ const Shop = () => {
       return;
     }
 
-    if (selectedTypes.length === 1 && selectedTypes[0] === matchedType) {
-      return;
-    }
-
     setSelectedTypes([matchedType]);
     setCurrentPage(1);
-  }, [location.search, teaTypes, selectedTypes]);
+    handledCategorySearchRef.current = location.search;
+  }, [location.search, teaTypes]);
 
   return (
     <div className="flex flex-col items-center w-full min-h-screen pb-20 font-display bg-background-light text-[#0d1b10]">
