@@ -38,19 +38,9 @@ function extractImageUrl(image) {
 }
 
 function extractProductImage(item) {
-  const direct =
-    item?.imageUrl ||
-    item?.thumbnail ||
-    item?.thumbnailUrl ||
-    item?.coverImage ||
-    item?.mainImage ||
-    item?.image ||
-    item?.imagePath ||
-    item?.filePath ||
-    null;
-
-  if (direct) {
-    return direct;
+  const explicitMain = extractImageUrl(item?.mainImage);
+  if (explicitMain) {
+    return explicitMain;
   }
 
   const imageLists = [
@@ -77,6 +67,23 @@ function extractProductImage(item) {
       if (fromList) {
         return fromList;
       }
+    }
+  }
+
+  const directCandidates = [
+    item?.imageUrl,
+    item?.thumbnail,
+    item?.thumbnailUrl,
+    item?.coverImage,
+    item?.image,
+    item?.imagePath,
+    item?.filePath,
+  ];
+
+  for (const candidate of directCandidates) {
+    const resolved = extractImageUrl(candidate);
+    if (resolved) {
+      return resolved;
     }
   }
 
@@ -204,7 +211,7 @@ const Home = () => {
 
         const withImage = await Promise.all(
           mapped.map(async (product) => {
-            if (product.img) {
+            if (!product.id) {
               return product;
             }
 
@@ -213,12 +220,12 @@ const Home = () => {
               const detailImage = extractProductImage(detailResponse?.data);
               return {
                 ...product,
-                img: detailImage || FALLBACK_PRODUCT_IMAGE,
+                img: detailImage || product.img || FALLBACK_PRODUCT_IMAGE,
               };
             } catch (detailError) {
               return {
                 ...product,
-                img: FALLBACK_PRODUCT_IMAGE,
+                img: product.img || FALLBACK_PRODUCT_IMAGE,
               };
             }
           }),
@@ -433,9 +440,6 @@ const Home = () => {
             <h2 className="text-2xl md:text-3xl font-bold">
               Trà được mua nhiều nhất
             </h2>
-            <p className="text-gray-500 mt-2">
-              Đồng bộ từ dữ liệu sản phẩm hiện có trên hệ thống.
-            </p>
           </div>
           <Link
             to="/shop"
