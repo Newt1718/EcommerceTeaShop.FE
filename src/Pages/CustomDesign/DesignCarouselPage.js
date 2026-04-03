@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Layout, Typography, ConfigProvider } from "antd";
 import { ShoppingOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
@@ -8,58 +8,64 @@ const { Title, Text, Paragraph } = Typography;
 
 const TEA_PRODUCTS = [
   {
-    id: "jasmine",
-    title: "Jasmine Reserve",
-    type: "Bạch Lộ Lục Trà",
-    price: "550.000₫",
-    bg: "https://res.cloudinary.com/dtlatkdui/image/upload/v1774542484/tea-products/gqr10wcrwuryycujaiyx.jpg",
-    desc: "Hương nhài tinh khiết được ướp thủ công qua 7 tuần trăng.",
+    id: "illustrative",
+    title: "Minh hoạ",
+    type: "Illustrative Mood",
+    price: "590.000₫",
+    bg: "/Minh%20ho%E1%BA%A1%20(illustrative).png",
+    desc: "Phong cách kể chuyện bằng nét vẽ mềm, hợp bộ sưu tập theo mùa và các chiến dịch giàu cảm hứng.",
   },
   {
-    id: "matcha",
-    title: "Matcha Gold",
-    type: "Nghiền Đá Non",
-    price: "420.000₫",
-    bg: "https://res.cloudinary.com/dtlatkdui/image/upload/v1774287990/tea-products/axlhieuacqztaymoda1j.jpg",
-    desc: "Bột trà xanh siêu mịn, giữ trọn diệp lục tố và vị umami đậm đà.",
+    id: "premium",
+    title: "Cao cấp",
+    type: "Premium Signature",
+    price: "790.000₫",
+    bg: "/Cao%20c%E1%BA%A5p%20(Premium).png",
+    desc: "Tông sang trọng nhấn vào trải nghiệm cao cấp, phù hợp trang giới thiệu dòng quà tặng đặc biệt.",
   },
   {
-    id: "vault",
-    title: "The Vault Set",
-    type: "Limited Collection",
-    price: "1.200.000₫",
-    bg: "https://res.cloudinary.com/dtlatkdui/image/upload/v1774287931/tea-products/nhhkcceeigjsft81elre.jpg",
-    desc: "Hệ thống bảo quản kép bao gồm lon thiếc và hộp bìa kiến trúc.",
+    id: "eco",
+    title: "Tự nhiên",
+    type: "Eco-friendly",
+    price: "520.000₫",
+    bg: "/T%E1%BB%B1%20nhi%C3%AAn%20(Eco-friendly).png",
+    desc: "Chất liệu và màu sắc gợi thiên nhiên, rất hợp các nội dung về bền vững và lối sống xanh.",
   },
   {
-    id: "sencha",
-    title: "Sencha Breeze",
-    type: "Nhật Bản Mùa Xuân",
-    price: "480.000₫",
-    bg: "https://res.cloudinary.com/dtlatkdui/image/upload/v1774542484/tea-products/gqr10wcrwuryycujaiyx.jpg",
-    desc: "Tầng hương cỏ non thanh mát, hậu vị ngọt nhẹ và sạch vị.",
+    id: "vintage",
+    title: "Cổ điển",
+    type: "Vintage Editorial",
+    price: "610.000₫",
+    bg: "/C%E1%BB%95%20%C4%91i%E1%BB%83n%20(Vintage).jpg",
+    desc: "Tinh thần hoài niệm với bố cục biên tập cổ điển, hợp bài blog thương hiệu và câu chuyện nguồn gốc.",
   },
   {
-    id: "oolong",
-    title: "Oolong Amber",
-    type: "Bán Lên Men",
-    price: "510.000₫",
-    bg: "https://res.cloudinary.com/dtlatkdui/image/upload/v1774287931/tea-products/nhhkcceeigjsft81elre.jpg",
-    desc: "Mùi hương mật ong khô và quả chín, thân trà dày nhưng êm.",
-  },
-  {
-    id: "whitepearl",
-    title: "White Pearl",
-    type: "Bạch Trà Tuyển Chọn",
-    price: "690.000₫",
-    bg: "https://res.cloudinary.com/dtlatkdui/image/upload/v1774287990/tea-products/axlhieuacqztaymoda1j.jpg",
-    desc: "Nụ trà phủ lông tơ bạc, nước sáng và vị ngọt mượt kéo dài.",
+    id: "classic",
+    title: "Đơn giản",
+    type: "Classic Minimal",
+    price: "450.000₫",
+    bg: "/%C4%90on%20gi%E1%BA%A3n%20(Clasic).jpg",
+    desc: "Thiết kế tối giản, tập trung vào sản phẩm và thông điệp chính, dễ dùng cho mọi landing page.",
   },
 ];
 
 const DesignCarouselPage = () => {
-  const [activeId, setActiveId] = useState("vault");
+  const [activeId, setActiveId] = useState("premium");
+  const [isAutoPlayEnabled, setIsAutoPlayEnabled] = useState(true);
+  const resumeAutoPlayTimeoutRef = useRef(null);
   const navigate = useNavigate();
+
+  const pauseAutoPlayOnUserInteraction = () => {
+    setIsAutoPlayEnabled(false);
+
+    if (resumeAutoPlayTimeoutRef.current) {
+      clearTimeout(resumeAutoPlayTimeoutRef.current);
+    }
+
+    resumeAutoPlayTimeoutRef.current = setTimeout(() => {
+      setIsAutoPlayEnabled(true);
+    }, 10000);
+  };
 
   const activeProduct = useMemo(
     () => TEA_PRODUCTS.find((product) => product.id === activeId) || TEA_PRODUCTS[0],
@@ -67,6 +73,10 @@ const DesignCarouselPage = () => {
   );
 
   useEffect(() => {
+    if (!isAutoPlayEnabled) {
+      return undefined;
+    }
+
     const interval = setInterval(() => {
       setActiveId((currentId) => {
         const currentIndex = TEA_PRODUCTS.findIndex((product) => product.id === currentId);
@@ -76,6 +86,14 @@ const DesignCarouselPage = () => {
     }, 5000);
 
     return () => clearInterval(interval);
+  }, [isAutoPlayEnabled]);
+
+  useEffect(() => {
+    return () => {
+      if (resumeAutoPlayTimeoutRef.current) {
+        clearTimeout(resumeAutoPlayTimeoutRef.current);
+      }
+    };
   }, []);
 
   return (
@@ -128,7 +146,10 @@ const DesignCarouselPage = () => {
                 return (
                   <div
                     key={product.id}
-                    onClick={() => setActiveId(product.id)}
+                    onClick={() => {
+                      setActiveId(product.id);
+                      pauseAutoPlayOnUserInteraction();
+                    }}
                     className={`absolute cursor-pointer transition-all duration-700 ease-out ${
                       isActive ? "z-30 w-[280px] md:w-[340px] h-[420px] md:h-[480px]" : "z-10 w-[220px] md:w-[260px] h-[320px] md:h-[380px] opacity-40 grayscale"
                     }`}
