@@ -16,6 +16,53 @@ const CHECKOUT_PENDING_ITEMS_KEY = "checkoutPendingCartItemIds";
 
 const getItemUnitPrice = (item) => Number(item?.unitPrice || 0);
 
+function resolveAppOrigin() {
+  const configuredOrigin = (process.env.REACT_APP_FRONTEND_URL || "").replace(/\/$/, "");
+  const browserOrigin = (window.location.origin || "").replace(/\/$/, "");
+
+  const isConfiguredLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(
+    configuredOrigin,
+  );
+  const isBrowserLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(
+    browserOrigin,
+  );
+
+  return configuredOrigin && !(isConfiguredLocalhost && !isBrowserLocalhost)
+    ? configuredOrigin
+    : browserOrigin;
+}
+
+function sanitizeCheckoutUrlCallbacks(rawCheckoutUrl, appOrigin) {
+  if (!rawCheckoutUrl || !appOrigin) {
+    return rawCheckoutUrl;
+  }
+
+  try {
+    const parsedCheckoutUrl = new URL(rawCheckoutUrl);
+    const browserHost = (window.location.hostname || "").toLowerCase();
+    const isBrowserLocalhostHost = browserHost === "localhost" || browserHost === "127.0.0.1";
+
+    const callbackMap = {
+      returnUrl: `${appOrigin}/payment/success`,
+      successUrl: `${appOrigin}/payment/success`,
+      cancelUrl: `${appOrigin}/payment/cancel`,
+    };
+
+    Object.entries(callbackMap).forEach(([key, fallbackUrl]) => {
+      const value = parsedCheckoutUrl.searchParams.get(key) || "";
+      const isLocalhostCallback = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(value);
+
+      if (isLocalhostCallback && !isBrowserLocalhostHost) {
+        parsedCheckoutUrl.searchParams.set(key, fallbackUrl);
+      }
+    });
+
+    return parsedCheckoutUrl.toString();
+  } catch (error) {
+    return rawCheckoutUrl;
+  }
+}
+
 function normalizeText(value) {
   return String(value || "")
     .toLowerCase()
@@ -146,7 +193,6 @@ const Checkout = () => {
   const [loadingAddresses, setLoadingAddresses] = useState(false);
   const [savingAddress, setSavingAddress] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("");
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [selectedCartItemIds, setSelectedCartItemIds] = useState(null);
@@ -317,13 +363,16 @@ const Checkout = () => {
 
   useEffect(() => {
     const params = new URLSearchParams(location.search || "");
+    const pathname = String(location.pathname || "").toLowerCase();
+    const isSuccessPath = pathname.endsWith("/payment/success");
+    const isCancelPath = pathname.endsWith("/payment/cancel");
     const hasPaymentParams =
       params.has("vnp_ResponseCode") ||
       params.has("resultCode") ||
       params.has("paymentStatus") ||
       params.has("status");
 
-    if (!hasPaymentParams) {
+    if (!hasPaymentParams && !isSuccessPath && !isCancelPath) {
       return;
     }
 
@@ -332,6 +381,7 @@ const Checkout = () => {
     const status = String(params.get("status") || params.get("paymentStatus") || "").toLowerCase();
 
     const isSuccess =
+      isSuccessPath ||
       vnpCode === "00" ||
       resultCode === "0" ||
       status === "success" ||
@@ -363,7 +413,7 @@ const Checkout = () => {
       navigate("/", { replace: true });
       return;
     }
-  }, [dispatch, location.search, navigate]);
+  }, [dispatch, location.pathname, location.search, navigate]);
 
   const handleAddressInputChange = (event) => {
     const { name, value, type, checked } = event.target;
@@ -495,7 +545,7 @@ const Checkout = () => {
 
   const handleCheckout = async () => {
     if (!isAuthenticated) {
-      toast.error("Vui long dang nhap de dat hang.");
+      toast.error("Vui lòng đăng nhập để đặt hàng.");
       navigate("/login", {
         state: {
           from: "/checkout",
@@ -506,12 +556,7 @@ const Checkout = () => {
     }
 
     if (!selectedAddress?.id) {
-      toast.error("Vui long chon dia chi giao hang.");
-      return;
-    }
-
-    if (!selectedPaymentMethod) {
-      toast.error("Vui long chon phuong thuc thanh toan.");
+      toast.error("Vui lòng chọn địa chỉ giao hàng.");
       return;
     }
 
@@ -533,19 +578,7 @@ const Checkout = () => {
         .filter(Boolean);
 
       if (cartItemIds.length === 0) {
-        toast.error("Khong tim thay san pham hop le trong gio hang de thanh toan.");
-        return;
-      }
-
-      if (selectedPaymentMethod === "cash") {
-        const response = await checkoutOrderApi({
-          addressId: selectedAddress.id,
-          cartItemIds,
-        });
-
-        await finalizeSuccessfulPayment(cartItemIds);
-        toast.success(response?.message || "Dat hang thanh cong.");
-        navigate("/", { replace: true });
+        toast.error("Không tìm thấy sản phẩm hợp lệ trong giỏ hàng để thanh toán.");
         return;
       }
 
@@ -555,24 +588,10 @@ const Checkout = () => {
         // ignore storage failures and continue checkout
       }
 
-      const configuredOrigin = (process.env.REACT_APP_FRONTEND_URL || "").replace(/\/$/, "");
-      const browserOrigin = (window.location.origin || "").replace(/\/$/, "");
-
-      // Prevent production users from being redirected to localhost when env is misconfigured.
-      const isConfiguredLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(
-        configuredOrigin,
-      );
-      const isBrowserLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(
-        browserOrigin,
-      );
-
-      const appOrigin =
-        configuredOrigin && !(isConfiguredLocalhost && !isBrowserLocalhost)
-          ? configuredOrigin
-          : browserOrigin;
+      const appOrigin = resolveAppOrigin();
 
       if (!appOrigin) {
-        toast.error("Khong xac dinh duoc domain de quay lai sau thanh toan.");
+        toast.error("Không xác định được domain để quay lại sau thanh toán.");
         return;
       }
 
@@ -586,39 +605,51 @@ const Checkout = () => {
       });
 
       const checkoutUrl = response?.data?.checkoutUrl;
-      toast.success(response?.message || "Dat hang thanh cong.");
+      toast.success("Đã tạo yêu cầu thanh toán. Đang chuyển hướng...");
 
       if (checkoutUrl) {
         try {
           const parsedCheckoutUrl = new URL(checkoutUrl);
           const checkoutHost = (parsedCheckoutUrl.hostname || "").toLowerCase();
-          const browserHost = (window.location.hostname || "").toLowerCase();
           const isCheckoutLocalhost = checkoutHost === "localhost" || checkoutHost === "127.0.0.1";
-          const isBrowserLocalhostHost = browserHost === "localhost" || browserHost === "127.0.0.1";
 
-          if (isCheckoutLocalhost && !isBrowserLocalhostHost) {
-            toast.error("Lien ket thanh toan tra ve localhost. Vui long kiem tra cau hinh backend callback URL.");
-            return;
-          }
-
-          const callbackKeys = ["returnUrl", "successUrl", "cancelUrl"];
-          const hasLocalhostCallback = callbackKeys.some((key) => {
-            const value = parsedCheckoutUrl.searchParams.get(key) || "";
-            return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(value);
-          });
-
-          if (hasLocalhostCallback && !isBrowserLocalhostHost) {
-            toast.error("Callback thanh toan dang tro ve localhost. Vui long cap nhat callback URL tren backend/cong thanh toan.");
+          if (isCheckoutLocalhost) {
+            toast.error("Liên kết thanh toán trả về localhost. Vui lòng kiểm tra cấu hình backend callback URL.");
             return;
           }
         } catch (parseCheckoutError) {
           // Allow navigation for non-standard but valid provider URLs.
         }
 
-        window.location.href = checkoutUrl;
+        const safeCheckoutUrl = sanitizeCheckoutUrlCallbacks(checkoutUrl, appOrigin);
+        window.location.href = safeCheckoutUrl;
       }
     } catch (error) {
-      toast.error(error?.message || "Khong the thuc hien thanh toan.");
+      const backendMessage = String(error?.message || "").toLowerCase();
+      const blockedByPendingOrder =
+        backendMessage.includes("don cu") ||
+        backendMessage.includes("đơn cũ") ||
+        backendMessage.includes("tiep tuc thanh toan") ||
+        backendMessage.includes("tiếp tục thanh toán");
+      const fallbackCheckoutUrl =
+        error?.payload?.data?.checkoutUrl ||
+        error?.payload?.data?.paymentUrl ||
+        null;
+
+      if (blockedByPendingOrder && fallbackCheckoutUrl) {
+        toast.info("Bạn đang có đơn chờ thanh toán. Đang chuyển sang thanh toán đơn cũ...");
+        const appOrigin = resolveAppOrigin();
+        const safeFallbackCheckoutUrl = sanitizeCheckoutUrlCallbacks(fallbackCheckoutUrl, appOrigin);
+        window.location.href = safeFallbackCheckoutUrl;
+        return;
+      }
+
+      if (blockedByPendingOrder) {
+        toast.warning("Bạn đang có đơn chờ thanh toán. Vui lòng hoàn tất hoặc hủy đơn cũ trước khi tạo đơn mới.");
+        return;
+      }
+
+      toast.error(error?.message || "Không thể thực hiện thanh toán.");
     } finally {
       setCheckingOut(false);
     }
@@ -885,55 +916,22 @@ const Checkout = () => {
             </h3>
             <div className="rounded-lg border border-[#e7f3e9] bg-white p-6 shadow-sm">
               <div className="flex flex-col gap-4">
-                <label
-                  className={`rounded-xl border p-4 cursor-pointer transition-colors ${
-                    selectedPaymentMethod === "online"
-                      ? "border-primary bg-primary/5"
-                      : "border-[#e7f3e9] hover:border-primary/40"
-                  }`}
-                >
+                <label className="rounded-xl border p-4 border-primary bg-primary/5">
                   <div className="flex items-center gap-3">
                     <input
                       type="radio"
                       name="paymentMethod"
                       value="online"
-                      checked={selectedPaymentMethod === "online"}
-                      onChange={(event) => setSelectedPaymentMethod(event.target.value)}
+                      checked
+                      readOnly
                       className="h-4 w-4 text-primary border-gray-300 focus:ring-primary"
                     />
                     <div className="flex flex-1 items-center justify-between">
-                      <span className="text-sm font-medium text-gray-700">Thanh toan online</span>
+                      <span className="text-sm font-medium text-gray-700">Thanh toán online</span>
                       <span className="material-symbols-outlined text-gray-400">credit_card</span>
                     </div>
                   </div>
                 </label>
-
-                <label
-                  className={`rounded-xl border p-4 cursor-pointer transition-colors ${
-                    selectedPaymentMethod === "cash"
-                      ? "border-primary bg-primary/5"
-                      : "border-[#e7f3e9] hover:border-primary/40"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      value="cash"
-                      checked={selectedPaymentMethod === "cash"}
-                      onChange={(event) => setSelectedPaymentMethod(event.target.value)}
-                      className="h-4 w-4 text-primary border-gray-300 focus:ring-primary"
-                    />
-                    <div className="flex flex-1 items-center justify-between">
-                      <span className="text-sm font-medium text-gray-700">Cash (thanh toan khi nhan hang)</span>
-                      <span className="material-symbols-outlined text-gray-400">payments</span>
-                    </div>
-                  </div>
-                </label>
-
-                {!selectedPaymentMethod && (
-                  <p className="text-xs text-gray-500">Vui long chon 1 phuong thuc thanh toan de tiep tuc.</p>
-                )}
               </div>
             </div>
           </section>
@@ -988,7 +986,7 @@ const Checkout = () => {
                   </div>
                 ))}
                 {orderItems.length === 0 && (
-                  <p className="text-sm text-gray-500">Gio hang dang trong.</p>
+                  <p className="text-sm text-gray-500">Giỏ hàng đang trống.</p>
                 )}
               </div>
 
@@ -1028,10 +1026,10 @@ const Checkout = () => {
               <div className="mt-6 flex justify-center ">
                 <button
                   onClick={handleCheckout}
-                  disabled={checkingOut || orderItems.length === 0 || !isAuthenticated || !selectedPaymentMethod}
+                  disabled={checkingOut || orderItems.length === 0 || !isAuthenticated}
                   className="w-full sm:w-auto px-20 py-4 bg-primary hover:bg-[#0fd630] disabled:bg-gray-300 text-[#0d1b10] font-black tracking-wide rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98]"
                 >
-                  {checkingOut ? "Dang xu ly..." : "Thanh toán ngay"}
+                  {checkingOut ? "Đang xử lý..." : "Thanh toán ngay"}
                 </button>
               </div>
             </div>
