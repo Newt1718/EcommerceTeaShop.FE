@@ -45,36 +45,49 @@ const mapApiTypeToUiType = (type) => {
   return type || 'Không xác định';
 };
 
-const mapStatusClass = (status) => {
-  const normalized = (status || '').toLowerCase();
-  if (normalized === 'paid' || normalized === 'completed' || normalized === 'success') {
+const mapStatusClass = (statusKey) => {
+  if (['paid', 'completed', 'success'].includes(statusKey)) {
     return 'bg-emerald-50 text-emerald-700 border-emerald-200';
   }
-  if (normalized === 'pending') {
+  if (statusKey === 'pending') {
     return 'bg-amber-50 text-amber-700 border-amber-200';
   }
-  if (normalized === 'cancelled' || normalized === 'failed') {
+  if (statusKey === 'cancelled' || statusKey === 'failed') {
     return 'bg-rose-50 text-rose-700 border-rose-200';
   }
   return 'bg-slate-100 text-slate-700 border-slate-200';
 };
 
-const resolveOrderStatus = (orderStatus, transactionStatusCode) => {
+const resolveStatusKey = (orderStatus, transactionStatusCode) => {
   const normalizedOrderStatus = String(orderStatus || '').toLowerCase();
   const normalizedTxCode = Number(transactionStatusCode);
 
   if (normalizedTxCode === 2) {
-    return 'Paid';
+    return 'paid';
   }
 
   if (normalizedTxCode === 0 || normalizedTxCode === 1) {
     if (['paid', 'completed', 'success'].includes(normalizedOrderStatus)) {
-      return orderStatus;
+      return normalizedOrderStatus;
     }
-    return 'Pending';
+    return 'pending';
   }
 
-  return orderStatus || '--';
+  if (['paid', 'pending', 'cancelled', 'failed', 'completed', 'success'].includes(normalizedOrderStatus)) {
+    return normalizedOrderStatus;
+  }
+
+  return 'unknown';
+};
+
+const mapStatusLabelVi = (statusKey) => {
+  if (statusKey === 'paid') return 'Đã thanh toán';
+  if (statusKey === 'pending') return 'Đang chờ';
+  if (statusKey === 'cancelled') return 'Đã hủy';
+  if (statusKey === 'failed') return 'Thất bại';
+  if (statusKey === 'completed') return 'Hoàn tất';
+  if (statusKey === 'success') return 'Thành công';
+  return '--';
 };
 
 const Orders = () => {
@@ -107,7 +120,7 @@ const Orders = () => {
         const { date, time } = formatDateTime(order.orderDate);
         const orderCode = order.orderCode;
         const txStatusCode = txStatusByOrderCode[String(orderCode)];
-        const resolvedStatus = resolveOrderStatus(order.status, txStatusCode);
+        const statusKey = resolveStatusKey(order.status, txStatusCode);
 
         return {
           id: order.id,
@@ -118,7 +131,8 @@ const Orders = () => {
           date,
           time,
           amount: Number(order.totalPrice || 0),
-          status: resolvedStatus,
+          statusKey,
+          status: mapStatusLabelVi(statusKey),
         };
       }),
     [ordersPage.items, txStatusByOrderCode],
@@ -132,11 +146,14 @@ const Orders = () => {
         (activeTab === 'Thiết kế trà' && order.type === 'Thiết kế trà') ||
         (activeTab === 'Cả trà & thiết kế' && order.type === 'Cả trà & thiết kế');
 
-      const normalizedStatus = String(order.status || '').toLowerCase();
       const matchesStatus =
         statusOption === 'Tất cả trạng thái' ||
-        (statusOption === 'Paid' && normalizedStatus === 'paid') ||
-        (statusOption === 'Pending' && normalizedStatus === 'pending');
+        (statusOption === 'Đã thanh toán' && order.statusKey === 'paid') ||
+        (statusOption === 'Đang chờ' && order.statusKey === 'pending') ||
+        (statusOption === 'Đã hủy' && order.statusKey === 'cancelled') ||
+        (statusOption === 'Hoàn tất' && order.statusKey === 'completed') ||
+        (statusOption === 'Thất bại' && order.statusKey === 'failed') ||
+        (statusOption === 'Thành công' && order.statusKey === 'success');
 
       const matchesSearch = 
         order.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -259,11 +276,16 @@ const Orders = () => {
       }
 
       const { date, time } = formatDateTime(detail.orderDate);
+      const detailStatusKey = resolveStatusKey(
+        detail.status,
+        txStatusByOrderCode[String(detail.orderCode)],
+      );
 
       setSelectedOrder({
         id: detail.id,
         orderCode: detail.orderCode,
-        status: detail.status || '--',
+        statusKey: detailStatusKey,
+        status: mapStatusLabelVi(detailStatusKey),
         date,
         time,
         customer: detail.customer?.fullName || '--',
@@ -305,7 +327,7 @@ const Orders = () => {
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Trạng thái</p>
                 <span
                   className={`inline-flex px-3 py-1 rounded-full text-xs font-bold border ${mapStatusClass(
-                    selectedOrder.status,
+                    selectedOrder.statusKey,
                   )}`}
                 >
                   {selectedOrder.status}
@@ -425,7 +447,7 @@ const Orders = () => {
 
                   <div className="my-2 h-px bg-slate-100" />
                   <div className="px-3 py-1 text-xs font-bold text-slate-400 uppercase tracking-wider">Trạng thái</div>
-                  {['Tất cả trạng thái', 'Paid', 'Pending'].map((option) => (
+                  {['Tất cả trạng thái', 'Đã thanh toán', 'Đang chờ', 'Đã hủy', 'Hoàn tất', 'Thất bại', 'Thành công'].map((option) => (
                     <button
                       key={option}
                       onClick={() => {
@@ -494,7 +516,7 @@ const Orders = () => {
                         {order.type}
                       </td>
                       <td className="p-4 truncate">
-                        <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold border ${mapStatusClass(order.status)}`}>
+                        <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold border ${mapStatusClass(order.statusKey)}`}>
                           {order.status}
                         </span>
                       </td>

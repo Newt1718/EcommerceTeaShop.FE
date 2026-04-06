@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
@@ -146,6 +146,7 @@ const Checkout = () => {
   const [loadingAddresses, setLoadingAddresses] = useState(false);
   const [savingAddress, setSavingAddress] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("");
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [selectedCartItemIds, setSelectedCartItemIds] = useState(null);
@@ -337,7 +338,7 @@ const Checkout = () => {
       status === "paid";
 
     if (isSuccess) {
-      const finalizeSuccessfulPayment = async () => {
+      const finalizePaymentReturn = async () => {
         let pendingCartItemIds = [];
         try {
           const rawPending = sessionStorage.getItem(CHECKOUT_PENDING_ITEMS_KEY);
@@ -349,40 +350,12 @@ const Checkout = () => {
           pendingCartItemIds = [];
         }
 
-        if (pendingCartItemIds.length > 0) {
-          const removeResults = await Promise.allSettled(
-            pendingCartItemIds.map((cartItemId) => removeCartItemApi(cartItemId)),
-          );
-
-          const hasHardRemoveError = removeResults.some((result) => {
-            if (result.status !== "rejected") {
-              return false;
-            }
-
-            const status = Number(result.reason?.status || 0);
-            return ![400, 404, 409].includes(status);
-          });
-
-          if (hasHardRemoveError) {
-            toast.warning("Don hang da thanh toan, dang dong bo gio hang...");
-          }
-        }
-
-        try {
-          const latestCartResponse = await getCartApi();
-          const normalizedLatestCart = normalizeCartProducts(latestCartResponse?.data);
-          dispatch(setCartProducts(normalizedLatestCart));
-        } catch (error) {
-          dispatch(clearCart());
-        }
-
-        sessionStorage.removeItem(CHECKOUT_SELECTED_ITEMS_KEY);
-        sessionStorage.removeItem(CHECKOUT_PENDING_ITEMS_KEY);
+        await finalizeSuccessfulPayment(pendingCartItemIds);
         toast.success("Thanh toán thành công.");
         navigate("/", { replace: true });
       };
 
-      finalizeSuccessfulPayment();
+      finalizePaymentReturn();
       return;
     } else {
       sessionStorage.removeItem(CHECKOUT_PENDING_ITEMS_KEY);
@@ -481,6 +454,45 @@ const Checkout = () => {
     [orderItems],
   );
 
+  const finalizeSuccessfulPayment = useCallback(
+    async (paidCartItemIds = []) => {
+      const safeCartItemIds = Array.isArray(paidCartItemIds)
+        ? paidCartItemIds.filter(Boolean)
+        : [];
+
+      if (safeCartItemIds.length > 0) {
+        const removeResults = await Promise.allSettled(
+          safeCartItemIds.map((cartItemId) => removeCartItemApi(cartItemId)),
+        );
+
+        const hasHardRemoveError = removeResults.some((result) => {
+          if (result.status !== "rejected") {
+            return false;
+          }
+
+          const status = Number(result.reason?.status || 0);
+          return ![400, 404, 409].includes(status);
+        });
+
+        if (hasHardRemoveError) {
+          toast.warning("Don hang da thanh toan, dang dong bo gio hang...");
+        }
+      }
+
+      try {
+        const latestCartResponse = await getCartApi();
+        const normalizedLatestCart = normalizeCartProducts(latestCartResponse?.data);
+        dispatch(setCartProducts(normalizedLatestCart));
+      } catch (error) {
+        dispatch(clearCart());
+      }
+
+      sessionStorage.removeItem(CHECKOUT_SELECTED_ITEMS_KEY);
+      sessionStorage.removeItem(CHECKOUT_PENDING_ITEMS_KEY);
+    },
+    [dispatch],
+  );
+
   const handleCheckout = async () => {
     if (!isAuthenticated) {
       toast.error("Vui long dang nhap de dat hang.");
@@ -495,6 +507,11 @@ const Checkout = () => {
 
     if (!selectedAddress?.id) {
       toast.error("Vui long chon dia chi giao hang.");
+      return;
+    }
+
+    if (!selectedPaymentMethod) {
+      toast.error("Vui long chon phuong thuc thanh toan.");
       return;
     }
 
@@ -517,6 +534,18 @@ const Checkout = () => {
 
       if (cartItemIds.length === 0) {
         toast.error("Khong tim thay san pham hop le trong gio hang de thanh toan.");
+        return;
+      }
+
+      if (selectedPaymentMethod === "cash") {
+        const response = await checkoutOrderApi({
+          addressId: selectedAddress.id,
+          cartItemIds,
+        });
+
+        await finalizeSuccessfulPayment(cartItemIds);
+        toast.success(response?.message || "Dat hang thanh cong.");
+        navigate("/", { replace: true });
         return;
       }
 
@@ -856,52 +885,55 @@ const Checkout = () => {
             </h3>
             <div className="rounded-lg border border-[#e7f3e9] bg-white p-6 shadow-sm">
               <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">
-                    Thẻ tín dụng
-                  </span>
-                  <div className="flex gap-2 text-gray-400">
-                    <span className="material-symbols-outlined">
-                      credit_card
-                    </span>
-                    <span className="material-symbols-outlined">
-                      account_balance_wallet
-                    </span>
+                <label
+                  className={`rounded-xl border p-4 cursor-pointer transition-colors ${
+                    selectedPaymentMethod === "online"
+                      ? "border-primary bg-primary/5"
+                      : "border-[#e7f3e9] hover:border-primary/40"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="online"
+                      checked={selectedPaymentMethod === "online"}
+                      onChange={(event) => setSelectedPaymentMethod(event.target.value)}
+                      className="h-4 w-4 text-primary border-gray-300 focus:ring-primary"
+                    />
+                    <div className="flex flex-1 items-center justify-between">
+                      <span className="text-sm font-medium text-gray-700">Thanh toan online</span>
+                      <span className="material-symbols-outlined text-gray-400">credit_card</span>
+                    </div>
                   </div>
-                </div>
-                <label className="block">
-                  <input
-                    className="w-full h-12 px-4 rounded-lg bg-white border border-[#e7f3e9] focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors text-[#0d1b10]"
-                    placeholder="Số thẻ"
-                    type="text"
-                  />
                 </label>
-                <label className="block">
-                  <input
-                    className="w-full h-12 px-4 rounded-lg bg-white border border-[#e7f3e9] focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors text-[#0d1b10]"
-                    placeholder="Tên trên thẻ"
-                    type="text"
-                  />
+
+                <label
+                  className={`rounded-xl border p-4 cursor-pointer transition-colors ${
+                    selectedPaymentMethod === "cash"
+                      ? "border-primary bg-primary/5"
+                      : "border-[#e7f3e9] hover:border-primary/40"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="cash"
+                      checked={selectedPaymentMethod === "cash"}
+                      onChange={(event) => setSelectedPaymentMethod(event.target.value)}
+                      className="h-4 w-4 text-primary border-gray-300 focus:ring-primary"
+                    />
+                    <div className="flex flex-1 items-center justify-between">
+                      <span className="text-sm font-medium text-gray-700">Cash (thanh toan khi nhan hang)</span>
+                      <span className="material-symbols-outlined text-gray-400">payments</span>
+                    </div>
+                  </div>
                 </label>
-                <div className="flex gap-4">
-                  <label className="block flex-1">
-                    <input
-                      className="w-full h-12 px-4 rounded-lg bg-white border border-[#e7f3e9] focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors text-[#0d1b10]"
-                      placeholder="Hết hạn (MM / YY)"
-                      type="text"
-                    />
-                  </label>
-                  <label className="block flex-1 relative">
-                    <input
-                      className="w-full h-12 px-4 rounded-lg bg-white border border-[#e7f3e9] focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors text-[#0d1b10]"
-                      placeholder="CVC"
-                      type="text"
-                    />
-                    <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">
-                      lock
-                    </span>
-                  </label>
-                </div>
+
+                {!selectedPaymentMethod && (
+                  <p className="text-xs text-gray-500">Vui long chon 1 phuong thuc thanh toan de tiep tuc.</p>
+                )}
               </div>
             </div>
           </section>
@@ -996,7 +1028,7 @@ const Checkout = () => {
               <div className="mt-6 flex justify-center ">
                 <button
                   onClick={handleCheckout}
-                  disabled={checkingOut || orderItems.length === 0 || !isAuthenticated}
+                  disabled={checkingOut || orderItems.length === 0 || !isAuthenticated || !selectedPaymentMethod}
                   className="w-full sm:w-auto px-20 py-4 bg-primary hover:bg-[#0fd630] disabled:bg-gray-300 text-[#0d1b10] font-black tracking-wide rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98]"
                 >
                   {checkingOut ? "Dang xu ly..." : "Thanh toán ngay"}
