@@ -115,3 +115,17 @@ export function getOrderByCodeApi(orderCode) {
     method: "GET",
   });
 }
+
+export function notifyPaymentWebhookApi({ orderCode, status = "PAID" }) {
+  ensureAuthenticated();
+
+  return request("/payment/webhook", {
+    method: "POST",
+    body: JSON.stringify({
+      data: {
+        orderCode: Number(orderCode),
+        status,
+      },
+    }),
+  });
+}

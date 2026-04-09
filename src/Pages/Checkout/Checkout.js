@@ -4,7 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import { addAddressApi, getAddressesApi } from "../../services/addressApi";
 import { getCartApi, normalizeCartProducts, removeCartItemApi } from "../../services/cartApi";
-import { checkoutOrderApi } from "../../services/orderApi";
+import { checkoutOrderApi, notifyPaymentWebhookApi } from "../../services/orderApi";
 import { getProductDetailApi, getProductsApi } from "../../services/productApi";
 import { clearCart, setCartProducts } from "../../redux/cartSlice/cartSlice";
 
@@ -379,6 +379,7 @@ const Checkout = () => {
     const vnpCode = params.get("vnp_ResponseCode");
     const resultCode = params.get("resultCode");
     const status = String(params.get("status") || params.get("paymentStatus") || "").toLowerCase();
+    const orderCodeFromReturn = params.get("orderCode") || params.get("vnp_TxnRef") || "";
 
     const isSuccess =
       isSuccessPath ||
@@ -389,6 +390,17 @@ const Checkout = () => {
 
     if (isSuccess) {
       const finalizePaymentReturn = async () => {
+        if (orderCodeFromReturn) {
+          try {
+            await notifyPaymentWebhookApi({
+              orderCode: orderCodeFromReturn,
+              status: "PAID",
+            });
+          } catch (error) {
+            // Keep checkout success flow resilient even if webhook notify fails.
+          }
+        }
+
         let pendingCartItemIds = [];
         try {
           const rawPending = sessionStorage.getItem(CHECKOUT_PENDING_ITEMS_KEY);
