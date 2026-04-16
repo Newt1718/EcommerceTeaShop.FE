@@ -1,6 +1,12 @@
 import React from 'react';
 
 const Contact = () => {
+  const businessAddress = '65D, 63 Lò Lu, Phường Trường Thạnh, Thủ Đức, Hồ Chí Minh';
+  const businessCoordinates = '10.827756792286821,106.81156881533423';
+  const mapEmbedSrc = `https://maps.google.com/maps?hl=vi&q=${encodeURIComponent(
+    `${businessCoordinates} (${businessAddress})`
+  )}&z=17&iwloc=B&output=embed`;
+
   return (
     <div className="flex-1 w-full max-w-[1440px] mx-auto px-4 md:px-10 py-12 lg:py-20 font-display bg-background-light text-[#0d1b10] min-h-screen">
       
@@ -89,7 +95,7 @@ const Contact = () => {
 
         <div className="flex-1 rounded-3xl overflow-hidden bg-surface-light min-h-[400px] lg:min-h-full relative border border-gray-100">
           <iframe 
-            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3918.7846549292837!2d106.81156881533423!3d10.827756792286821!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3175271168925503%3A0x644265cc8d69f886!2sL%C3%B2%20Lu%2C%20Tr%C6%B0%E1%BB%9Dng%20Th%E1%BA%A1nh%2C%20Qu%E1%BA%ADn%209%2C%20H%E1%BB%93%20Ch%C3%AD%20Minh!5e0!3m2!1sen!2s!4v1650000000000!5m2!1sen!2s" 
+            src={mapEmbedSrc}
             className="absolute inset-0 w-full h-full border-0"
             allowFullScreen="" 
             loading="lazy" 
