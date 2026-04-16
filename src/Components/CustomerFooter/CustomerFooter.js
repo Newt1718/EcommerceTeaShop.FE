@@ -150,23 +150,32 @@ const CustomerFooter = () => {
         <div className="col-span-1">
           <h3 className="font-bold mb-4 text-lg">Liên hệ</h3>
           <ul className="flex flex-col gap-4 text-sm text-gray-500 font-medium">
-            <li className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-primary text-[20px]">
-                location_on
-              </span>{" "}
-              123 Tea Garden Lane, Portland, OR
+            <li className="flex items-start gap-3">
+              <span className="w-9 h-9 bg-primary/20 rounded-full flex items-center justify-center text-primary shrink-0">
+                <span className="material-symbols-outlined text-[18px]">call</span>
+              </span>
+              <div className="pt-1">
+                <p className="text-[#0d1b10] font-bold">0357 130 804</p>
+                <p className="text-xs text-gray-500">Hoạt động trong giờ hành chính</p>
+              </div>
             </li>
-            <li className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-primary text-[20px]">
-                mail
-              </span>{" "}
-              hello@teavault.com
+            <li className="flex items-start gap-3">
+              <span className="w-9 h-9 bg-primary/20 rounded-full flex items-center justify-center text-primary shrink-0">
+                <span className="material-symbols-outlined text-[18px]">mail</span>
+              </span>
+              <div className="pt-1">
+                <p className="text-[#0d1b10] font-bold break-all">teavault2025@gmail.com</p>
+                <p className="text-xs text-gray-500">Phản hồi trong 24 giờ</p>
+              </div>
             </li>
-            <li className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-primary text-[20px]">
-                call
-              </span>{" "}
-              +1 (555) 123-4567
+            <li className="flex items-start gap-3">
+              <span className="w-9 h-9 bg-primary/20 rounded-full flex items-center justify-center text-primary shrink-0">
+                <span className="material-symbols-outlined text-[18px]">location_on</span>
+              </span>
+              <div className="pt-1">
+                <p className="text-[#0d1b10] font-bold">65D, 63 Lò Lu, P. Trường Thạnh</p>
+                <p className="text-xs text-gray-500">TP. Thủ Đức, Hồ Chí Minh</p>
+              </div>
             </li>
           </ul>
         </div>
