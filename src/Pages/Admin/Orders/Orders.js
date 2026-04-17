@@ -28,7 +28,6 @@ const formatDateTime = (value) => {
 
 const mapTabToTypeParam = (tab) => {
   if (tab === 'Trà') return 'tea';
-  if (tab === 'Thiết kế trà') return 'design';
   if (tab === 'Cả trà & thiết kế') return 'both';
   return 'all';
 };
@@ -46,13 +45,13 @@ const mapApiTypeToUiType = (type) => {
 };
 
 const mapStatusClass = (statusKey) => {
-  if (['paid', 'completed', 'success'].includes(statusKey)) {
+  if (statusKey === 'paid') {
     return 'bg-emerald-50 text-emerald-700 border-emerald-200';
   }
   if (statusKey === 'pending') {
     return 'bg-amber-50 text-amber-700 border-amber-200';
   }
-  if (statusKey === 'cancelled' || statusKey === 'failed') {
+  if (statusKey === 'cancelled') {
     return 'bg-rose-50 text-rose-700 border-rose-200';
   }
   return 'bg-slate-100 text-slate-700 border-slate-200';
@@ -68,13 +67,24 @@ const resolveStatusKey = (orderStatus, transactionStatusCode) => {
 
   if (normalizedTxCode === 0 || normalizedTxCode === 1) {
     if (['paid', 'completed', 'success'].includes(normalizedOrderStatus)) {
-      return normalizedOrderStatus;
+      return 'paid';
+    }
+    if (['cancelled', 'failed'].includes(normalizedOrderStatus)) {
+      return 'cancelled';
     }
     return 'pending';
   }
 
-  if (['paid', 'pending', 'cancelled', 'failed', 'completed', 'success'].includes(normalizedOrderStatus)) {
-    return normalizedOrderStatus;
+  if (['paid', 'completed', 'success'].includes(normalizedOrderStatus)) {
+    return 'paid';
+  }
+
+  if (normalizedOrderStatus === 'pending') {
+    return 'pending';
+  }
+
+  if (['cancelled', 'failed'].includes(normalizedOrderStatus)) {
+    return 'cancelled';
   }
 
   return 'unknown';
@@ -84,9 +94,6 @@ const mapStatusLabelVi = (statusKey) => {
   if (statusKey === 'paid') return 'Đã thanh toán';
   if (statusKey === 'pending') return 'Đang chờ';
   if (statusKey === 'cancelled') return 'Đã hủy';
-  if (statusKey === 'failed') return 'Thất bại';
-  if (statusKey === 'completed') return 'Hoàn tất';
-  if (statusKey === 'success') return 'Thành công';
   return '--';
 };
 
@@ -99,24 +106,18 @@ const Orders = () => {
   const [sortOption, setSortOption] = useState('Mới nhất');
   const [statusOption, setStatusOption] = useState('Tất cả trạng thái');
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [ordersPage, setOrdersPage] = useState({
-    pageNumber: 1,
-    pageSize: 10,
-    totalItems: 0,
-    totalPages: 1,
-    items: [],
-  });
+  const [orders, setOrders] = useState([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
   const [ordersError, setOrdersError] = useState('');
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [detailError, setDetailError] = useState('');
   const [txStatusByOrderCode, setTxStatusByOrderCode] = useState({});
 
-  const itemsPerPage = ordersPage.pageSize || 10;
+  const itemsPerPage = 10;
 
   const allOrders = useMemo(
     () =>
-      (ordersPage.items || []).map((order) => {
+      (orders || []).map((order) => {
         const { date, time } = formatDateTime(order.orderDate);
         const orderCode = order.orderCode;
         const txStatusCode = txStatusByOrderCode[String(orderCode)];
@@ -135,7 +136,7 @@ const Orders = () => {
           status: mapStatusLabelVi(statusKey),
         };
       }),
-    [ordersPage.items, txStatusByOrderCode],
+    [orders, txStatusByOrderCode],
   );
 
   const filteredOrders = useMemo(() => {
@@ -143,21 +144,17 @@ const Orders = () => {
       const matchesTab = 
         activeTab === 'Tất cả đơn' ||
         (activeTab === 'Trà' && order.type === 'Trà') ||
-        (activeTab === 'Thiết kế trà' && order.type === 'Thiết kế trà') ||
         (activeTab === 'Cả trà & thiết kế' && order.type === 'Cả trà & thiết kế');
 
       const matchesStatus =
         statusOption === 'Tất cả trạng thái' ||
         (statusOption === 'Đã thanh toán' && order.statusKey === 'paid') ||
         (statusOption === 'Đang chờ' && order.statusKey === 'pending') ||
-        (statusOption === 'Đã hủy' && order.statusKey === 'cancelled') ||
-        (statusOption === 'Hoàn tất' && order.statusKey === 'completed') ||
-        (statusOption === 'Thất bại' && order.statusKey === 'failed') ||
-        (statusOption === 'Thành công' && order.statusKey === 'success');
+        (statusOption === 'Đã hủy' && order.statusKey === 'cancelled');
 
       const matchesSearch = 
         order.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.id.toLowerCase().includes(searchQuery.toLowerCase());
+        String(order.orderCode).toLowerCase().includes(searchQuery.toLowerCase());
 
       return matchesTab && matchesStatus && matchesSearch;
     });
@@ -175,12 +172,22 @@ const Orders = () => {
     return result;
   }, [activeTab, searchQuery, sortOption, statusOption, allOrders]);
 
-  const totalPages = Math.max(ordersPage.totalPages || 1, 1);
-  const currentOrders = filteredOrders;
+  const totalItems = filteredOrders.length;
+  const totalPages = Math.max(Math.ceil(totalItems / itemsPerPage), 1);
+  const currentOrders = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredOrders.slice(start, start + itemsPerPage);
+  }, [filteredOrders, currentPage, itemsPerPage]);
 
   useEffect(() => {
     setCurrentPage(1);
   }, [activeTab, searchQuery, sortOption, statusOption]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   useEffect(() => {
     let mounted = true;
@@ -190,32 +197,51 @@ const Orders = () => {
       setOrdersError('');
 
       try {
-        const response = await getAdminOrdersApi({
+        const baseQuery = {
           sort: mapSortToApiParam(sortOption),
           type: mapTabToTypeParam(activeTab),
-          pageNumber: currentPage,
-          pageSize: itemsPerPage,
+          pageSize: 100,
+        };
+
+        const firstResponse = await getAdminOrdersApi({
+          ...baseQuery,
+          pageNumber: 1,
         });
 
         if (!mounted) {
           return;
         }
 
-        const pageData = response?.data || {};
-        setOrdersPage({
-          pageNumber: Number(pageData.pageNumber || currentPage),
-          pageSize: Number(pageData.pageSize || itemsPerPage),
-          totalItems: Number(pageData.totalItems || 0),
-          totalPages: Number(pageData.totalPages || 1),
-          items: Array.isArray(pageData.items) ? pageData.items : [],
-        });
+        const firstPageData = firstResponse?.data || {};
+        const maxPage = Number(firstPageData.totalPages || 1);
+        let mergedOrders = Array.isArray(firstPageData.items) ? firstPageData.items : [];
+
+        if (maxPage > 1) {
+          const restResponses = await Promise.all(
+            Array.from({ length: maxPage - 1 }, (_, index) =>
+              getAdminOrdersApi({
+                ...baseQuery,
+                pageNumber: index + 2,
+              }),
+            ),
+          );
+
+          const restOrders = restResponses.flatMap((resp) => {
+            const pageData = resp?.data || {};
+            return Array.isArray(pageData.items) ? pageData.items : [];
+          });
+
+          mergedOrders = [...mergedOrders, ...restOrders];
+        }
+
+        setOrders(mergedOrders);
       } catch (error) {
         if (!mounted) {
           return;
         }
 
         setOrdersError(error?.message || 'Không tải được danh sách đơn hàng.');
-        setOrdersPage((prev) => ({ ...prev, items: [], totalItems: 0, totalPages: 1 }));
+        setOrders([]);
       } finally {
         if (mounted) {
           setIsLoadingOrders(false);
@@ -228,7 +254,7 @@ const Orders = () => {
     return () => {
       mounted = false;
     };
-  }, [activeTab, currentPage, itemsPerPage, sortOption]);
+  }, [activeTab, sortOption]);
 
   useEffect(() => {
     let mounted = true;
@@ -390,7 +416,7 @@ const Orders = () => {
 
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 w-full md:w-auto scrollbar-hide">
-            {['Tất cả đơn', 'Trà', 'Thiết kế trà', 'Cả trà & thiết kế'].map((tab) => (
+            {['Tất cả đơn', 'Trà', 'Cả trà & thiết kế'].map((tab) => (
               <button 
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -447,7 +473,7 @@ const Orders = () => {
 
                   <div className="my-2 h-px bg-slate-100" />
                   <div className="px-3 py-1 text-xs font-bold text-slate-400 uppercase tracking-wider">Trạng thái</div>
-                  {['Tất cả trạng thái', 'Đã thanh toán', 'Đang chờ', 'Đã hủy', 'Hoàn tất', 'Thất bại', 'Thành công'].map((option) => (
+                  {['Tất cả trạng thái', 'Đã thanh toán', 'Đang chờ', 'Đã hủy'].map((option) => (
                     <button
                       key={option}
                       onClick={() => {
@@ -552,7 +578,7 @@ const Orders = () => {
           {totalPages > 1 && (
             <div className="flex items-center justify-between p-4 border-t border-slate-200 bg-slate-50/50">
               <span className="text-sm text-slate-500 font-medium">
-                Hiển thị <span className="font-bold text-slate-900">{ordersPage.totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}</span> đến <span className="font-bold text-slate-900">{Math.min(currentPage * itemsPerPage, ordersPage.totalItems)}</span> trên <span className="font-bold text-slate-900">{ordersPage.totalItems}</span>
+                Hiển thị <span className="font-bold text-slate-900">{totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}</span> đến <span className="font-bold text-slate-900">{Math.min(currentPage * itemsPerPage, totalItems)}</span> trên <span className="font-bold text-slate-900">{totalItems}</span>
               </span>
               <div className="flex items-center gap-1">
                 <button 
