@@ -116,7 +116,6 @@ const ProductEdit = () => {
   const [availableAddons, setAvailableAddons] = useState([]);
   const [selectedAddonIds, setSelectedAddonIds] = useState([]);
   const [loadingAddons, setLoadingAddons] = useState(false);
-  const [assigningAddons, setAssigningAddons] = useState(false);
 
   useEffect(() => {
     const loadCategories = async () => {
@@ -438,22 +437,6 @@ const ProductEdit = () => {
 
       return [...prev, addonId];
     });
-  };
-
-  const handleAssignAddons = async () => {
-    if (isAddMode || !productId) {
-      return;
-    }
-
-    try {
-      setAssigningAddons(true);
-      await assignAdminAddonsToProductApi(productId, selectedAddonIds);
-      toast.success('Gán thiết kế cho sản phẩm thành công.');
-    } catch (error) {
-      toast.error(error?.message || 'Không thể gán thiết kế cho sản phẩm.');
-    } finally {
-      setAssigningAddons(false);
-    }
   };
 
   const handleSubmit = async () => {
@@ -906,17 +889,10 @@ const ProductEdit = () => {
                 <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                   <span className="material-symbols-outlined text-blue-600">sell</span> Gán thiết kế (Add-on)
                 </h3>
-                {!isAddMode ? (
-                  <button
-                    type="button"
-                    onClick={handleAssignAddons}
-                    disabled={loadingAddons || assigningAddons || submitting}
-                    className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-60"
-                  >
-                    {assigningAddons ? 'Đang gán...' : 'Lưu gán'}
-                  </button>
-                ) : (
+                {isAddMode ? (
                   <span className="text-xs font-medium text-slate-500">Sẽ gán khi bấm Tạo sản phẩm</span>
+                ) : (
+                  <span className="text-xs font-medium text-slate-500">Sẽ gán khi bấm Lưu thay đổi</span>
                 )}
               </div>
 
