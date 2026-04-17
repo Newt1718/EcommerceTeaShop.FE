@@ -885,15 +885,10 @@ const ProductEdit = () => {
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-              <div className="mb-4 flex items-center justify-between gap-3">
+              <div className="mb-4 flex items-center gap-3">
                 <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                   <span className="material-symbols-outlined text-blue-600">sell</span> Gán thiết kế (Add-on)
                 </h3>
-                {isAddMode ? (
-                  <span className="text-xs font-medium text-slate-500">Sẽ gán khi bấm Tạo sản phẩm</span>
-                ) : (
-                  <span className="text-xs font-medium text-slate-500">Sẽ gán khi bấm Lưu thay đổi</span>
-                )}
               </div>
 
               {loadingAddons ? (
