@@ -20,6 +20,79 @@ import {
 
 const formatVnd = (value) => `${Number(value || 0).toLocaleString('vi-VN')} đ`;
 
+const extractCreatedProductId = (createResponse) => {
+  const payload = createResponse || {};
+  const data = payload?.data;
+
+  const directCandidates = [
+    payload?.productId,
+    payload?.id,
+    data?.productId,
+    data?.id,
+    data?.product?.productId,
+    data?.product?.id,
+    data?.item?.productId,
+    data?.item?.id,
+    data?.result?.productId,
+    data?.result?.id,
+  ];
+
+  for (const candidate of directCandidates) {
+    const normalized = String(candidate || '').trim();
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  const messageCandidates = [payload?.message, data?.message]
+    .map((item) => String(item || ''))
+    .filter(Boolean);
+
+  // Try to parse id from plain-text response messages.
+  for (const message of messageCandidates) {
+    const guidMatch = message.match(
+      /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i,
+    );
+    if (guidMatch?.[0]) {
+      return guidMatch[0];
+    }
+
+    const numericIdMatch = message.match(/(?:id|ma)\s*[:#-]?\s*(\d{1,18})/i);
+    if (numericIdMatch?.[1]) {
+      return numericIdMatch[1];
+    }
+  }
+
+  return '';
+};
+
+const findCreatedProductIdByList = async ({ name, categoryId }) => {
+  const normalizedName = String(name || '').trim().toLowerCase();
+  const normalizedCategoryId = String(categoryId || '').trim();
+
+  if (!normalizedName) {
+    return '';
+  }
+
+  const firstPage = await getAdminProductsApi({ pageNumber: 1, pageSize: 200 });
+  const items = Array.isArray(firstPage?.data?.items) ? firstPage.data.items : [];
+
+  const matchedWithCategory = items.find((item) => {
+    const itemName = String(item?.name || '').trim().toLowerCase();
+    const itemCategoryId = String(item?.categoryId || '').trim();
+    return itemName === normalizedName && normalizedCategoryId && itemCategoryId === normalizedCategoryId;
+  });
+
+  const matchedByNameOnly = items.find((item) => {
+    const itemName = String(item?.name || '').trim().toLowerCase();
+    return itemName === normalizedName;
+  });
+
+  const matched = matchedWithCategory || matchedByNameOnly;
+
+  return String(matched?.productId || matched?.id || '').trim();
+};
+
 const ProductEdit = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -144,7 +217,7 @@ const ProductEdit = () => {
 
         const mappedAll = allItems
           .map((item) => ({
-            id: String(item?.id || ''),
+            id: String(item?.id || item?.addonId || ''),
             name: item?.name || 'Không tên',
             description: item?.description || '',
             price: Number(item?.price || 0),
@@ -155,7 +228,7 @@ const ProductEdit = () => {
         setAvailableAddons(mappedAll);
 
         const assignedIds = assignedItems
-          .map((item) => String(item?.id || ''))
+          .map((item) => String(item?.id || item?.addonId || ''))
           .filter(Boolean);
 
         setSelectedAddonIds(assignedIds);
@@ -412,33 +485,33 @@ const ProductEdit = () => {
           images: imageFiles,
         });
 
+        let addonAssignWarning = '';
+
         if (selectedAddonIds.length > 0) {
-          let createdProductId = String(
-            createResponse?.data?.productId ||
-              createResponse?.data?.id ||
-              createResponse?.data?.product?.id ||
-              '',
-          );
+          let createdProductId = extractCreatedProductId(createResponse);
 
           // Fallback for APIs that do not return the created id.
           if (!createdProductId) {
-            const productListRes = await getAdminProductsApi({ pageNumber: 1, pageSize: 200 });
-            const candidate = (productListRes?.data?.items || []).find(
-              (item) =>
-                String(item?.name || '').trim().toLowerCase() === name.trim().toLowerCase() &&
-                String(item?.categoryId || '') === String(categoryId),
-            );
-            createdProductId = String(candidate?.productId || candidate?.id || '');
+            createdProductId = await findCreatedProductIdByList({
+              name,
+              categoryId,
+            });
           }
 
           if (createdProductId) {
             await assignAdminAddonsToProductApi(createdProductId, selectedAddonIds);
           } else {
-            toast.warning('Tạo sản phẩm thành công nhưng chưa gán được add-on. Vui lòng mở sửa để gán thủ công.');
+            addonAssignWarning = 'Tạo sản phẩm thành công nhưng chưa gán được add-on. Vui lòng mở sửa để gán thủ công.';
           }
         }
 
-        toast.success('Tạo sản phẩm thành công.');
+        if (addonAssignWarning) {
+          toast.warning(addonAssignWarning);
+        } else if (selectedAddonIds.length > 0) {
+          toast.success('Tạo sản phẩm và gán thiết kế thành công.');
+        } else {
+          toast.success('Tạo sản phẩm thành công.');
+        }
       } else {
         await updateAdminProductApi({
           productId,
@@ -463,7 +536,9 @@ const ProductEdit = () => {
           );
         }
 
-        toast.success('Cập nhật sản phẩm thành công.');
+        await assignAdminAddonsToProductApi(productId, selectedAddonIds);
+
+        toast.success('Cập nhật sản phẩm và gán thiết kế thành công.');
       }
 
       navigate('/admin/products');
